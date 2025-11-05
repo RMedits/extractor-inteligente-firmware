@@ -251,25 +251,23 @@ controlFan() - Control del relé y PWM del ventilador.
 
 updateDisplay() - Actualización de la pantalla OLED según el estado.
 
-🔌 INFORMACIÓN DE PINES (Sugerencia)
+## 🔌 Pinout Detallado
 
-GPIO21: I2C SDA (OLED y BME280)
+| Pin (ESP32) | Componente              | Conexión          | Propósito                               |
+| :---------- | :---------------------- | :---------------- | :-------------------------------------- |
+| **GPIO 21** | Bus I2C                 | `SDA`             | Datos para OLED y BME280                |
+| **GPIO 22** | Bus I2C                 | `SCL`             | Reloj para OLED y BME280                |
+| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`            | Lectura analógica del MQ135             |
+| **GPIO 32** | Encoder Rotativo        | `CLK`             | Señal A del encoder para navegación     |
+| **GPIO 33** | Encoder Rotativo        | `DT`              | Señal B del encoder para navegación     |
+| **GPIO 25** | Botón ENTER             | a `GND`           | Confirmar selección (usa `INPUT_PULLUP`) |
+| **GPIO 26** | Botón BACK              | a `GND`           | Cancelar / Volver (usa `INPUT_PULLUP`)  |
+| **GPIO 27** | Módulo Relé             | `IN`              | Activa/desactiva el circuito de 12V     |
+| **GPIO 14** | MOSFET                  | `Gate`            | Señal PWM para controlar velocidad      |
+| **5V**      | Alimentación            | `VCC`             | Alimenta el Relé y el MQ135             |
+| **3.3V**    | Alimentación            | `VCC`             | Alimenta el BME280, OLED y Encoder      |
+| **GND**     | Tierra Común            | `GND`             | Conexión a tierra para todos los comp.  |
 
-GPIO22: I2C SCL (OLED y BME280)
-
-GPIO34: MQ135 Analógico (AOUT)
-
-GPIO32: Encoder CLK
-
-GPIO33: Encoder DT
-
-GPIO25: Botón ENTER (usar INPUT_PULLUP)
-
-GPIO26: Botón BACK (usar INPUT_PULLUP)
-
-GPIO27: Relé IN (salida digital, HIGH para activar)
-
-GPIO14: PWM Ventilador (salida PWM, al Gate del MOSFET)
 
 🎨 DISEÑO DE INTERFAZ (Mockups)
 
