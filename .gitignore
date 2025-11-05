@@ -1,0 +1,8 @@
+.pio/
+.vscode/
+*.hex
+*.elf
+*.bin
+.DS_Store
+Thumbs.db
+platformio_override.ini
