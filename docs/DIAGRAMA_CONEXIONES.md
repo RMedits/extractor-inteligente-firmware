@@ -15,7 +15,7 @@ graph LR
         BtnBack((Botón BACK))
     end
 
-    subgraph "Circuito de Potencia 12V"
+    subgraph potencia["Circuito de Potencia 12V"]
         Power12V(Fuente 12V) --> Relay{Relé};
         Relay -- COM/NO --> Fan(Ventilador DC);
         Fan --> MOSFET{MOSFET};
@@ -46,5 +46,5 @@ graph LR
     style ESP32 fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
     style Sensores fill:#2196F3,color:#fff
     style Controles fill:#FF9800,color:#fff
-    style "Circuito de Potencia 12V" fill:#F44336,color:#fff
+    style potencia fill:#F44336,color:#fff
 ```
