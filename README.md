@@ -1,3 +1,38 @@
+# 🌪️ Extractor Inteligente - Firmware v4.0
+
+[![PlatformIO](https://img.shields.io/badge/PlatformIO-Ready-orange.svg)](https://platformio.org/)
+[![ESP32](https://img.shields.io/badge/ESP32-Compatible-blue.svg)](https://www.espressif.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Sistema inteligente de extracción de aire para baño/galería con control automático basado en sensores y modo manual con selección de tiempo y velocidad.
+
+## ✨ Características v4.0
+
+- ✅ **Control Automático**: Activación basada en humedad, temperatura y calidad del aire
+- ✅ **4 Velocidades Manuales**: 25%, 50%, 75%, 100%
+- ✅ **Temporizador**: 30, 60 o 90 minutos
+- ✅ **Interfaz Intuitiva**: OLED 128x64 + Encoder rotativo + 2 botones
+- ✅ **Monitoreo en Tiempo Real**: Temperatura, humedad y calidad del aire
+
+## 🚀 Inicio Rápido
+
+```bash
+git clone https://github.com/RMedits/extractor-inteligente-firmware.git
+cd extractor-inteligente-firmware
+pio run --target upload
+pio device monitor
+```
+
+📖 Ver [Guía de Instalación Completa](docs/INSTALACION.md)
+
+## 📊 Estados de Operación
+
+```
+AUTOMÁTICO → SELECCIÓN TIEMPO → SELECCIÓN VELOCIDAD → MANUAL ACTIVO
+     ↑                                                        ↓
+     └────────────────────────────────────────────────────────┘
+```
+---
 crear un sistema de extracción de aire inteligente para baño/galería con control automático y manual. El sistema debe monitorear las condiciones ambientales y activar un ventilador de forma automática, además de permitir control manual con temporizador.
 
 🔧 COMPONENTES DISPONIBLES
