@@ -1,32 +1,31 @@
 # Esquema de Conexiones (Arte ASCII)
 
-Este es un esquema simplificado de las conexiones, diseñado para ser legible en cualquier editor de texto. Es una referencia rápida y universal.
+Este es un esquema simplificado de las conexiones, diseñado para ser legible en cualquier editor de texto. Refleja el uso del módulo integrado.
 
 ```text
-                               +---------------------------------+
-                               |         ESP32 DevKit            |
+                               +--------------------------------+
+                               |          ESP32 DevKit          |
+                               |                                |
+                               |                                |
+      (BME280 SDA)----[SDA]---| GPIO 21 ---[oled_sda]------------\
+      (BME280 SCL)----[SCL]---| GPIO 22 ---[oled_scl]-------------\
                                |                                 |
-      (OLED, BME280) --[SDA]---| GPIO 21                         |
-      (OLED, BME280) --[SCL]---| GPIO 22                         |
+                               | GPIO 25 ---[confirm]--------------|
+                               | GPIO 26 ---[bak]------------------| Módulo
+                               | GPIO 32 ---[encoder_tra]----------| Integrado
+                               | GPIO 33 ---[encoder_trb]----------|
                                |                                 |
-(Botón ENTER) ---[PULLUP]------| GPIO 25                         |
-  (a GND)                      |                                 |
-(Botón BACK) ----[PULLUP]------| GPIO 26                         |
-  (a GND)                      |                                 |
-                               |                                 |
-(Relé IN) --------[CONTROL]---| GPIO 27                         |
-                               |                                 |
-(Encoder CLK) ----------------| GPIO 32                         |
-(Encoder DT) -----------------| GPIO 33                         |
-                               |                                 |
-(MQ135 AOUT) ----[ANALOG]-----| GPIO 34                         |
-                               |                                 |
-(MOSFET Gate) ------[PWM]------| GPIO 14                         |
-                               |                                 |
-                               | 3.3V ----> (Alimentación BME280, OLED, Encoder)
+      (MQ135 AOUT)---[ANALOG]-| GPIO 34                          |
+                               |                                |
+ (Relé IN)--------[CONTROL]--| GPIO 27                          |
+ (MOSFET Gate)-------[PWM]----| GPIO 14                          |
+                               |                                |
+                               | 3.3V ----- [3v3-5v]--------------/
+                               | GND ------ [gnd]----------------/
+                               |                                |
                                | 5V ------> (Alimentación Relé, MQ135)
                                | GND ------> (GND Común para TODO)
-                               +---------------------------------+
+                               +--------------------------------+
 
 
     Circuito de Potencia 12V:

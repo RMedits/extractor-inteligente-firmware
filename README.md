@@ -253,20 +253,23 @@ updateDisplay() - Actualización de la pantalla OLED según el estado.
 
 ## 🔌 Pinout Detallado
 
-| Pin (ESP32) | Componente              | Conexión          | Propósito                               |
-| :---------- | :---------------------- | :---------------- | :-------------------------------------- |
-| **GPIO 21** | Bus I2C                 | `SDA`             | Datos para OLED y BME280                |
-| **GPIO 22** | Bus I2C                 | `SCL`             | Reloj para OLED y BME280                |
-| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`            | Lectura analógica del MQ135             |
-| **GPIO 32** | Encoder Rotativo        | `CLK`             | Señal A del encoder para navegación     |
-| **GPIO 33** | Encoder Rotativo        | `DT`              | Señal B del encoder para navegación     |
-| **GPIO 25** | Botón ENTER             | a `GND`           | Confirmar selección (usa `INPUT_PULLUP`) |
-| **GPIO 26** | Botón BACK              | a `GND`           | Cancelar / Volver (usa `INPUT_PULLUP`)  |
-| **GPIO 27** | Módulo Relé             | `IN`              | Activa/desactiva el circuito de 12V     |
-| **GPIO 14** | MOSFET                  | `Gate`            | Señal PWM para controlar velocidad      |
-| **5V**      | Alimentación            | `VCC`             | Alimenta el Relé y el MQ135             |
-| **3.3V**    | Alimentación            | `VCC`             | Alimenta el BME280, OLED y Encoder      |
-| **GND**     | Tierra Común            | `GND`             | Conexión a tierra para todos los comp.  |
+Esta tabla describe a qué pin del ESP32 se conecta cada función. Con el nuevo módulo integrado, varias de estas conexiones van a un único componente.
+
+| Pin (ESP32) | Componente Principal    | Conexión en Módulo      | Propósito                               |
+| :---------- | :---------------------- | :---------------------- | :-------------------------------------- |
+| **GPIO 21** | Módulo Integrado / BME280 | `oled_sda`              | Datos I2C para pantalla y sensor        |
+| **GPIO 22** | Módulo Integrado / BME280 | `oled_scl`              | Reloj I2C para pantalla y sensor        |
+| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`                  | Lectura analógica del MQ135             |
+| **GPIO 32** | Módulo Integrado        | `encoder_tra`           | Señal A del encoder para navegación     |
+| **GPIO 33** | Módulo Integrado        | `encoder_trb`           | Señal B del encoder para navegación     |
+| **GPIO 25** | Módulo Integrado        | `confirm`               | Botón de Enter/Confirmar                |
+| **GPIO 26** | Módulo Integrado        | `bak`                   | Botón de Back/Cancelar                  |
+| **GPIO 27** | Módulo Relé             | `IN`                    | Activa/desactiva el circuito de 12V     |
+| **GPIO 14** | MOSFET                  | `Gate`                  | Señal PWM para controlar velocidad      |
+| **5V**      | Alimentación            | `VCC`                   | Alimenta el Relé y el MQ135             |
+| **3.3V**    | Alimentación            | `3v3-5v` (Módulo), `VCC` | Alimenta Módulo Integrado y BME280      |
+| **GND**     | Tierra Común            | `gnd` (Módulo), `GND`   | Conexión a tierra para todos los comp.  |
+
 
 
 🎨 DISEÑO DE INTERFAZ (Mockups)

@@ -61,8 +61,8 @@ El motor del ventilador y el relé pueden introducir ruido eléctrico en el sist
 Imagina una caja de montaje estándar:
 
 1.  **Panel Frontal**:
-    - Monta la pantalla OLED en una ventana recortada.
-    - Monta el encoder rotativo y los dos botones (ENTER/BACK) para que sean accesibles desde fuera.
+    - Realiza un único recorte rectangular para el **Módulo Integrado**.
+    - Fija el módulo de manera que la pantalla OLED, el encoder rotativo y los botones sean accesibles desde el exterior. Esto simplifica enormemente el montaje en comparación con la instalación de cada componente por separado.
 
 2.  **Interior - Parte Trasera/Inferior**:
     - Fija la placa del ESP32.

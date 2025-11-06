@@ -26,9 +26,7 @@ graph TD
     end
 
     subgraph "Panel Frontal (Accesible al Usuario)"
-        id6[Pantalla OLED]
-        id7[Encoder Rotativo]
-        id8[Botones]
+        id6["Módulo Integrado (OLED + Controles)"]
     end
 
     subgraph "Rejilla de Ventilación (Expuesto al Aire)"
@@ -40,9 +38,7 @@ graph TD
     end
 
     %% Conexiones a periféricos
-    id2 -- "Cable I2C (< 30cm)" --> id6
-    id2 -- "Cables Digitales" --> id7
-    id2 -- "Cables Digitales" --> id8
+    id2 -- "Cableado a Módulo" --> id6
     id2 -- "Cable I2C (< 30cm)" --> id9
     id2 -- "Cable Analógico (< 20cm)" --> id10
     id5 -- "Cable de Potencia (Calibre Adecuado)" --> id11((Ventilador Externo))
@@ -50,7 +46,7 @@ graph TD
     %% Estilos para claridad
     style id1,id2 fill:#4CAF50,color:#fff
     style id3,id4,id5 fill:#F44336,color:#fff
-    style id6,id7,id8 fill:#FF9800,color:#fff
+    style id6 fill:#FF9800,color:#fff
     style id9,id10 fill:#2196F3,color:#fff
 ```
 
