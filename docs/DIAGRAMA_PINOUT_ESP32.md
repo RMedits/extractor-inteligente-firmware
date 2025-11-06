@@ -59,21 +59,21 @@ graph LR
     %% --- Resaltar Pines Usados en el Proyecto v6.1 ---
 
     %% Fila Izquierda
-    style L4 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> MQ135_PIN (GPIO34)
-    style L6 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> ENCODER_TRA_PIN (GPIO32)
-    style L7 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> ENCODER_TRB_PIN (GPIO33)
-    style L8 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> BTN_CONFIRM_PIN (GPIO25)
-    style L9 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> BTN_BACK_PIN (GPIO26)
-    style L10 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black --> BTN_ENCODER_PUSH (GPIO27)
-    style L11 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black --> FAN_PWM_PIN (GPIO14)
-    style L18 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black --> 3.3V (Alimentación)
-    style L19 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black --> GND (Tierra Común)
+    style L4 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L6 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L7 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L8 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L9 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L10 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L11 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style L18 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black
+    style L19 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black
 
     %% Fila Derecha
-    style R2 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  --> RELAY_PIN (GPIO23)
-    style R3 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black  --> I2C SCL (GPIO22)
-    style R6 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black  --> I2C SDA (GPIO21)
-    style R19 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black --> 5V (Alimentación)
+    style R2 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
+    style R3 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black
+    style R6 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black
+    style R19 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black
 
 ```
 
