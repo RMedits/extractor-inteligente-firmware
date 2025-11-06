@@ -1,52 +1,49 @@
-# Diagrama de Pines - ESP32 DevKit (WROOM-32D) - Layout Fiel a la Realidad
+# Diagrama de Pines - ESP32 DevKit (30 Pines) - Layout Fiel a tu Placa
 
-Este diagrama muestra la disposición de los 38 pines de tu placa, imitando su apariencia física con dos columnas enfrentadas.
+Este diagrama muestra la disposición de los 30 pines de tu placa, imitando su apariencia física con dos columnas enfrentadas y usando la numeración que proporcionaste.
 
 **Los pines utilizados en el proyecto "Extractor Inteligente v6.1" están resaltados en color.**
 
 ```mermaid
 graph LR
-    subgraph "ESP32 DevKit C (Tu Placa)"
+    subgraph "ESP32 DevKit (30 Pines)"
         direction TB
 
         subgraph "Pines Izquierda"
             direction TB
-            P1["1: GND"] --> P2["2: 3V3"] --> P3["3: EN"] --> P4["4: SENSOR_VP (GPIO36)"] --> P5["5: SENSOR_VN (GPIO39)"] --> P6["6: IO34 (GPIO34)"] --> P7["7: IO35 (GPIO35)"] --> P8["8: IO32 (GPIO32)"] --> P9["9: IO33 (GPIO33)"] --> P10["10: IO25 (GPIO25)"] --> P11["11: IO26 (GPIO26)"] --> P12["12: IO27 (GPIO27)"] --> P13["13: IO14 (GPIO14)"] --> P14["14: IO12 (GPIO12)"] --> P15["15: IO13 (GPIO13)"] --> P16["16: IO15 (GPIO15)"] --> P17["17: IO2 (GPIO2)"] --> P18["18: GND"] --> P19["19: IO4 (GPIO4)"] --> P20["20: IO0 (GPIO0)"]
+            I1["1: 3V3"] --> I2["2: GND"] --> I3["3: D15 (GPIO15)"] --> I4["4: D2 (GPIO2)"] --> I5["5: D4 (GPIO4)"] --> I6["6: D16 (GPIO16)"] --> I7["7: D17 (GPIO17)"] --> I8["8: D5 (GPIO5)"] --> I9["9: D18 (GPIO18)"] --> I10["10: D19 (GPIO19)"] --> I11["11: D21 (GPIO21)"] --> I12["12: RX0 (GPIO3)"] --> I13["13: TX0 (GPIO1)"] --> I14["14: D22 (GPIO22)"] --> I15["15: D23 (GPIO23)"]
         end
 
         subgraph " "
            direction TB
-           ESP["<br/><br/><br/><br/><br/><br/><b>ESP32</b><br/>WROOM-32D<br/><br/><br/><br/><br/><br/><br/><br/>"]
+           ESP["<br/><br/><br/><br/><b>ESP32</b><br/>WROOM-32D<br/>(30 Pines)<br/><br/><br/><br/><br/>"]
         end
 
         subgraph "Pines Derecha"
             direction TB
-            P21["21: IO17 (GPIO17)"] --> P22["22: IO16 (GPIO16)"] --> P23["23: IO5 (GPIO5)"] --> P24["24: IO18 (GPIO18)"] --> P25["25: IO19 (GPIO19)"] --> P26["26: IO21 (GPIO21)"] --> P27["27: RXD0 (GPIO3)"] --> P28["28: TXD0 (GPIO1)"] --> P29["29: IO22 (GPIO22)"] --> P30["30: IO23 (GPIO23)"] --> P31["31: NC"] --> P32["32: IO38 (GPIO38)"] --> P33["33: IO39 (GPIO39)"] --> P34["34: IO36 (GPIO36)"] --> P35["35: IO37 (GPIO37)"] --> P36["36: IO34 (GPIO34)"] --> P37["37: IO33 (GPIO33)"] --> P38["38: GND"]
+            R1["16: VIN"] --> R2["17: GND"] --> R3["18: D13 (GPIO13)"] --> R4["19: D12 (GPIO12)"] --> R5["20: D14 (GPIO14)"] --> R6["21: D27 (GPIO27)"] --> R7["22: D26 (GPIO26)"] --> R8["23: D25 (GPIO25)"] --> R9["24: D33 (GPIO33)"] --> R10["25: D32 (GPIO32)"] --> R11["26: D35 (GPIO35)"] --> R12["27: D34 (GPIO34)"] --> R13["28: VN (GPIO39)"] --> R14["29: VP (GPIO36)"] --> R15["30: EN"]
         end
     end
 
     %% --- Estilos de los Pines Usados ---
-    %% Columna Izquierda
-    style P1 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black
-    style P2 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black
-    style P6 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P8 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P9 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P10 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P11 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P12 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P13 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P18 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black
+    %% Columna Izquierda (1-15)
+    style I1 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black  %% 3.3V
+    style I2 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black  %% GND
+    style I11 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black %% GPIO21 (SDA)
+    style I14 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black %% GPIO22 (SCL)
+    style I15 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black %% GPIO23 (Relay)
 
-    %% Columna Derecha
-    style P26 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black
-    style P29 fill:#90CAF9,stroke:#0D47A1,stroke-width:2px,color:black
-    style P30 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black
-    style P38 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black
+    %% Columna Derecha (16-30)
+    style R1 fill:#80CBC4,stroke:#004D40,stroke-width:2px,color:black  %% VIN (5V)
+    style R2 fill:#BDBDBD,stroke:#212121,stroke-width:2px,color:black  %% GND
+    style R5 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  %% GPIO14 (PWM)
+    style R6 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  %% GPIO27 (OK/Enter)
+    style R7 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  %% GPIO26 (Pause)
+    style R8 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  %% GPIO25 (Back)
+    style R9 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black  %% GPIO33 (Encoder B)
+    style R10 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black %% GPIO32 (Encoder A)
+    style R12 fill:#FFAB91,stroke:#BF360C,stroke-width:2px,color:black %% GPIO34 (MQ135)
 
-    %% Nota sobre el pin de 5V
-    note["Nota: El pin de 5V (VIN) no está en tu lista.<br/>Si tu placa tiene un pin VIN, úsalo para la alimentación de 5V."]
-    style note fill:#FFF9C4,stroke:#F57F17,stroke-width:1px,color:black
 ```
 
 ### Leyenda de Colores
@@ -54,4 +51,3 @@ graph LR
 - **Azul**: Pines del bus de comunicación I2C.
 - **Verde**: Pines de alimentación (3.3V / 5V).
 - **Gris**: Pines de tierra (GND).
-- **Amarillo**: Nota importante.
