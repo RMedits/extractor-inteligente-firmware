@@ -4,12 +4,12 @@ Este diagrama muestra las conexiones lógicas entre el ESP32 y todos los compone
 
 ```mermaid
 graph LR
-    subgraph "Periféricos Externos"
+    subgraph perifericos["Periféricos Externos"]
         BME280((Sensor BME280))
         MQ135((Sensor MQ135))
     end
 
-    subgraph "Módulo Integrado (OLED + Controles)"
+    subgraph modulo["Módulo Integrado (OLED + Controles)"]
         direction LR
         Pin1(oled_sda)
         Pin2(oled_scl)
@@ -51,7 +51,7 @@ graph LR
     ESP32 -- "GPIO 14 (PWM)" --> MOSFET;
 
     style ESP32 fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
-    style "Periféricos Externos" fill:#2196F3,color:#fff
-    style "Módulo Integrado (OLED + Controles)" fill:#FF9800,color:#fff
+    style perifericos fill:#2196F3,color:#fff
+    style modulo fill:#FF9800,color:#fff
     style potencia fill:#F44336,color:#fff
 ```
