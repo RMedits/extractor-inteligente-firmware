@@ -255,6 +255,12 @@ controlFan() - Control del relé y PWM del ventilador.
 
 updateDisplay() - Actualización de la pantalla OLED según el estado.
 
+## 📍 Diagrama de Pines de la Placa
+
+Para evitar confusiones con el cableado, puedes consultar un diagrama de pines detallado de la placa ESP32 DevKit, con los pines usados en este proyecto resaltados.
+
+➡️ **[Ver Diagrama de Pines del ESP32](docs/DIAGRAMA_PINOUT_ESP32.md)**
+
 ## 🔌 Pinout Detallado (v6.0)
 
 **Importante**: Esta versión requiere cambiar el cable del relé del GPIO 27 al **GPIO 23**.
