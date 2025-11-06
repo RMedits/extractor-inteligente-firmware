@@ -24,7 +24,7 @@ Necesito crear un sistema de extracción de aire inteligente para baño/galería
 
 Hardware Principal
 
-Microcontrolador: ESP32 DevKit (con WiFi/Bluetooth integrado)
+Microcontrolador: ESP32 DevKit HW-394 (USB-C, ESP32-WROOM-32 con WiFi/Bluetooth integrado)
 
 Pantalla: OLED 128x64 píxeles con interfaz I2C
 
@@ -238,23 +238,16 @@ updateDisplay() - Actualización de la pantalla OLED según el estado.
 
 🔌 INFORMACIÓN DE PINES (Sugerencia)
 
-GPIO21: I2C SDA (OLED y BME280)
-
-GPIO22: I2C SCL (OLED y BME280)
-
-GPIO34: MQ135 Analógico (AOUT)
-
-GPIO32: Encoder CLK
-
-GPIO33: Encoder DT
-
-GPIO25: Botón ENTER (usar INPUT_PULLUP)
-
-GPIO26: Botón BACK (usar INPUT_PULLUP)
-
-GPIO27: Relé IN (salida digital, HIGH para activar)
-
-GPIO14: PWM Ventilador (salida PWM, al Gate del MOSFET)
+- GPIO21: I2C SDA (OLED y BME280)
+- GPIO22: I2C SCL (OLED y BME280)
+- GPIO34: MQ135 Analógico (AOUT)
+- GPIO32: Encoder CLK (canal A)
+- GPIO33: Encoder DT (canal B)
+- GPIO27: Botón OK/ENTER (usar INPUT_PULLUP)
+- GPIO25: Botón BACK/CANCEL (usar INPUT_PULLUP)
+- GPIO26: Botón PAUSA/REANUDAR (usar INPUT_PULLUP)
+- GPIO23: Relé IN (salida digital, HIGH para activar)
+- GPIO14: PWM Ventilador (salida PWM, al Gate del MOSFET)
 
 🎨 DISEÑO DE INTERFAZ (Mockups)
 

@@ -5,7 +5,7 @@ Este esquema refleja el cableado para el firmware v6.0 con la lógica de botones
 
 ```text
                                +--------------------------------+
-                               |          ESP32 DevKit          |
+                               |      ESP32 DevKit HW-394       |
                                |                                |
       (BME280 SDA)----[SDA]---| GPIO 21 ---[oled_sda]------------\
       (BME280 SCL)----[SCL]---| GPIO 22 ---[oled_scl]-------------\

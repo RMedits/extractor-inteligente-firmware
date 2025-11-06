@@ -6,7 +6,7 @@ Este diagrama ilustra cómo se alimentan los dos circuitos del proyecto (5V y 12
 graph TD
     subgraph "Circuito de Lógica"
         A[Fuente 5V / Cargador USB]
-        A -- "+5V" --> B(ESP32 DevKit);
+        A -- "+5V" --> B(ESP32 DevKit HW-394);
         A -- "GND (Negativo)" --> G1(GND);
         B -- "Pines de 5V/3.3V" --> C((Sensores, OLED, Controles));
     end
