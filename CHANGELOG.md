@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.1.0] - 2025-11-06
+
+### ✨ Añadido
+- **Integración del sensor AHT20**: El firmware ahora es compatible con el sensor AHT20 para temperatura y humedad.
+- **Lecturas Redundantes y Promediadas**: El sistema lee datos tanto del BME280 como del AHT20 y utiliza el promedio de ambos para obtener mediciones de temperatura y humedad más precisas y fiables.
+- **Manejo de Fallos de Sensor**: El código puede operar con solo uno de los dos sensores (BME280 o AHT20) si el otro no es detectado.
+
+### 🔧 Mejorado
+- **Precisión de Sensores**: La lógica de promediado mejora la robustez de las lecturas ambientales.
+- **Logs de Debug**: Los mensajes del puerto serie ahora muestran las lecturas de ambos sensores y el valor promediado resultante.
+
 ## [6.0.0] - 2025-11-06
 
 ### ✨ Añadido

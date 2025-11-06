@@ -1,6 +1,6 @@
 /*
   Extractor Inteligente para Baño/Galería
-  ESP32 + BME280 + MQ135 + Módulo OLED Integrado
+  ESP32 + AHT20 + BME280 + MQ135 + Módulo OLED Integrado
   
   CONTROLES OPTIMIZADOS:
   - Encoder (girar): Navegar opciones
@@ -8,7 +8,7 @@
   - CONFIRM (botón lateral): BACK/Cancelar/Volver
   - BACK (botón lateral): PAUSA de emergencia (ON/OFF)
   
-  VERSIÓN 6.0 - Lógica de botones optimizada
+  VERSIÓN 6.1 - Integración de sensor AHT20
   https://github.com/RMedits/extractor-inteligente-firmware
 */
 
@@ -17,6 +17,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_BME280.h>
+#include <Adafruit_AHTX0.h>
 #include <ESP32Encoder.h>
 
 // --- CONFIGURACIÓN DE PANTALLA OLED ---
@@ -27,6 +28,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // --- CONFIGURACIÓN DE SENSORES ---
 Adafruit_BME280 bme;
+Adafruit_AHTX0 aht;
 #define MQ135_PIN 34
 
 // --- CONFIGURACIÓN DEL MÓDULO INTEGRADO ---
@@ -64,7 +66,7 @@ enum Mode {
 Mode currentMode = AUTOMATICO;
 Mode previousMode = AUTOMATICO; // Para recordar el estado antes de pausa
 
-// Variables de sensores
+// Variables de sensores (valores promediados)
 float temperature = 0.0;
 float humidity = 0.0;
 int airQuality = 0;
@@ -113,8 +115,8 @@ void updateDisplay();
 void setup() {
   Serial.begin(115200);
   Serial.println("\n╔════════════════════════════════════╗");
-  Serial.println("║  EXTRACTOR INTELIGENTE v6.0       ║");
-  Serial.println("║  Lógica de Botones Optimizada     ║");
+  Serial.println("║  EXTRACTOR INTELIGENTE v6.1       ║");
+  Serial.println("║  Integracion de sensor AHT20      ║");
   Serial.println("╚════════════════════════════════════╝\n");
 
   // Inicializar pines
@@ -149,10 +151,10 @@ void setup() {
   display.setCursor(5, 5);
   display.println("Extractor");
   display.setCursor(5, 30);
-  display.println("v6.0");
+  display.println("v6.1");
   display.setTextSize(1);
   display.setCursor(10, 52);
-  display.println("Logica optimizada");
+  display.println("Sensor AHT20");
   display.display();
   delay(2000);
 
@@ -160,17 +162,19 @@ void setup() {
   Serial.print("Iniciando BME280... ");
   if (!bme.begin(0x76) && !bme.begin(0x77)) {
     Serial.println("❌ ERROR");
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 10);
-    display.println("ERROR:");
-    display.println("BME280 no detectado");
-    display.println("");
-    display.println("Verifica I2C");
-    display.display();
-    while(true);
+    // No detenemos el programa, podemos continuar con el AHT20
+  } else {
+    Serial.println("✓ OK");
   }
-  Serial.println("✓ OK");
+
+  // Inicializar AHT20
+  Serial.print("Iniciando AHT20... ");
+  if (!aht.begin()) {
+    Serial.println("❌ ERROR");
+    // No detenemos el programa, podemos continuar con el BME280
+  } else {
+    Serial.println("✓ OK");
+  }
   
   // Calibración MQ135
   Serial.println("Calibrando MQ135...");
@@ -268,19 +272,41 @@ void handleControls() {
 
 // --- LECTURA DE SENSORES ---
 void readSensors() {
-  temperature = bme.readTemperature();
-  humidity = bme.readHumidity();
-  airQuality = analogRead(MQ135_PIN);
+  float tempBME = NAN, humBME = NAN;
+  float tempAHT = NAN, humAHT = NAN;
+  int sensorCount = 0;
 
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("⚠️ Lectura BME280 inválida");
-    return;
-  }
+  // Leer BME280
+  tempBME = bme.readTemperature();
+  humBME = bme.readHumidity();
+
+  // Leer AHT20
+  sensors_event_t humidity_event, temp_event;
+  aht.getEvent(&humidity_event, &temp_event);
+  tempAHT = temp_event.temperature;
+  humAHT = humidity_event.relative_humidity;
+
+  // Calcular promedio de temperatura
+  float totalTemp = 0;
+  int tempSensorCount = 0;
+  if (!isnan(tempBME)) { totalTemp += tempBME; tempSensorCount++; }
+  if (!isnan(tempAHT)) { totalTemp += tempAHT; tempSensorCount++; }
+  if (tempSensorCount > 0) temperature = totalTemp / tempSensorCount;
+
+  // Calcular promedio de humedad
+  float totalHum = 0;
+  int humSensorCount = 0;
+  if (!isnan(humBME)) { totalHum += humBME; humSensorCount++; }
+  if (!isnan(humAHT)) { totalHum += humAHT; humSensorCount++; }
+  if (humSensorCount > 0) humidity = totalHum / humSensorCount;
+
+  // Leer MQ135
+  airQuality = analogRead(MQ135_PIN);
 
   static unsigned long lastDebugTime = 0;
   if (millis() - lastDebugTime > 10000) {
-    Serial.printf("📊 T: %.1f°C | H: %.1f%% | Aire: %d\n", 
-                  temperature, humidity, airQuality);
+    Serial.printf("📊 BME: T:%.1f H:%.1f | AHT: T:%.1f H:%.1f | PROMEDIO: T:%.1f H:%.1f | Aire: %d\n",
+                  tempBME, humBME, tempAHT, humAHT, temperature, humidity, airQuality);
     lastDebugTime = millis();
   }
 }
@@ -464,7 +490,7 @@ void updateDisplay() {
   // Barra superior: sensores
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.printf("T:%dC H:%d%% A:%d", (int)temperature, (int)humidity, airQuality);
+  display.printf("T:%.0fC H:%.0f%% A:%d", temperature, humidity, airQuality);
   display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
   
   switch (currentMode) {
