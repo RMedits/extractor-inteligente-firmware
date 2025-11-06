@@ -5,9 +5,9 @@ Este diagrama muestra la disposición de los 38 pines de tu placa, imitando su a
 **Los pines utilizados en el proyecto "Extractor Inteligente v6.1" están resaltados en color.**
 
 ```mermaid
-graph TD
+graph LR
     subgraph "ESP32 DevKit C (Tu Placa)"
-        direction LR
+        direction TB
 
         subgraph "Pines Izquierda"
             direction TB
