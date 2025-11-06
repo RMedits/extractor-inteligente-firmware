@@ -1,18 +1,25 @@
-# Diagrama de Pines - ESP32 DevKit (WROOM-32D) - Layout Vertical
+# Diagrama de Pines - ESP32 DevKit (WROOM-32D) - Layout Fiel a la Realidad
 
-Este diagrama muestra la disposición de los 38 pines de tu placa en un formato vertical, respetando la numeración y el orden exacto que has proporcionado.
+Este diagrama muestra la disposición de los 38 pines de tu placa, imitando su apariencia física con dos columnas enfrentadas.
 
 **Los pines utilizados en el proyecto "Extractor Inteligente v6.1" están resaltados en color.**
 
 ```mermaid
 graph TD
-    subgraph "ESP32 DevKit (Tu Placa)"
-        subgraph "Columna Izquierda"
+    subgraph "ESP32 DevKit C (Tu Placa)"
+        direction LR
+
+        subgraph "Pines Izquierda"
             direction TB
             P1["1: GND"] --> P2["2: 3V3"] --> P3["3: EN"] --> P4["4: SENSOR_VP (GPIO36)"] --> P5["5: SENSOR_VN (GPIO39)"] --> P6["6: IO34 (GPIO34)"] --> P7["7: IO35 (GPIO35)"] --> P8["8: IO32 (GPIO32)"] --> P9["9: IO33 (GPIO33)"] --> P10["10: IO25 (GPIO25)"] --> P11["11: IO26 (GPIO26)"] --> P12["12: IO27 (GPIO27)"] --> P13["13: IO14 (GPIO14)"] --> P14["14: IO12 (GPIO12)"] --> P15["15: IO13 (GPIO13)"] --> P16["16: IO15 (GPIO15)"] --> P17["17: IO2 (GPIO2)"] --> P18["18: GND"] --> P19["19: IO4 (GPIO4)"] --> P20["20: IO0 (GPIO0)"]
         end
 
-        subgraph "Columna Derecha"
+        subgraph " "
+           direction TB
+           ESP["<br/><br/><br/><br/><br/><br/><b>ESP32</b><br/>WROOM-32D<br/><br/><br/><br/><br/><br/><br/><br/>"]
+        end
+
+        subgraph "Pines Derecha"
             direction TB
             P21["21: IO17 (GPIO17)"] --> P22["22: IO16 (GPIO16)"] --> P23["23: IO5 (GPIO5)"] --> P24["24: IO18 (GPIO18)"] --> P25["25: IO19 (GPIO19)"] --> P26["26: IO21 (GPIO21)"] --> P27["27: RXD0 (GPIO3)"] --> P28["28: TXD0 (GPIO1)"] --> P29["29: IO22 (GPIO22)"] --> P30["30: IO23 (GPIO23)"] --> P31["31: NC"] --> P32["32: IO38 (GPIO38)"] --> P33["33: IO39 (GPIO39)"] --> P34["34: IO36 (GPIO36)"] --> P35["35: IO37 (GPIO37)"] --> P36["36: IO34 (GPIO34)"] --> P37["37: IO33 (GPIO33)"] --> P38["38: GND"]
         end
