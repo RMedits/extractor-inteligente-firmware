@@ -1,18 +1,20 @@
-# 🌪️ Extractor Inteligente - Firmware v4.0
+# 🌪️ Extractor Inteligente - Firmware v6.0
 
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Ready-orange.svg)](https://platformio.org/)
 [![ESP32](https://img.shields.io/badge/ESP32-Compatible-blue.svg)](https://www.espressif.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Sistema inteligente de extracción de aire para baño/galería con control automático basado en sensores y modo manual con selección de tiempo y velocidad.
+Sistema inteligente de extracción de aire para baño/galería con control automático basado en sensores y modo manual con selección de tiempo, velocidad y función de pausa.
 
-## ✨ Características v4.0
+## ✨ Características v6.0
 
-- ✅ **Control Automático**: Activación basada en humedad, temperatura y calidad del aire
-- ✅ **4 Velocidades Manuales**: 25%, 50%, 75%, 100%
-- ✅ **Temporizador**: 30, 60 o 90 minutos
-- ✅ **Interfaz Intuitiva**: OLED 128x64 + Encoder rotativo + 2 botones
-- ✅ **Monitoreo en Tiempo Real**: Temperatura, humedad y calidad del aire
+- ✅ **Control Automático**: Activación basada en humedad, temperatura y calidad del aire.
+- ✅ **4 Velocidades Manuales**: 25%, 50%, 75%, 100%.
+- ✅ **Temporizador**: 30, 60 o 90 minutos.
+- ✅ **Función de Pausa**: Detiene el ventilador y congela el temporizador sin cancelar el programa.
+- ✅ **Controles Ergonómicos**: Lógica de botones optimizada para un uso más intuitivo.
+- ✅ **Interfaz Clara**: OLED 128x64 + Encoder rotativo + botones.
+- ✅ **Monitoreo en Tiempo Real**: Temperatura, humedad y calidad del aire.
 
 ## 🚀 Inicio Rápido
 
@@ -25,13 +27,15 @@ pio device monitor
 
 📖 Ver [Guía de Instalación Completa](docs/INSTALACION.md)
 
-## 📊 Estados de Operación
+## 🎮 Controles v6.0 (Lógica Optimizada)
 
-```
-AUTOMÁTICO → SELECCIÓN TIEMPO → SELECCIÓN VELOCIDAD → MANUAL ACTIVO
-     ↑                                                        ↓
-     └────────────────────────────────────────────────────────┘
-```
+| Botón Físico | Acción | Función Principal | Icono |
+| :--- | :--- | :--- | :---: |
+| **Encoder** | Girar | Navegar Opciones | 🔄 |
+| **Encoder** | Pulsar | OK / Confirmar | ✓ |
+| **Botón `CONFIRM`** | Pulsar | Back / Cancelar | ⬅️ |
+| **Botón `BAK`** | Pulsar | Pausa / Reanudar | ⏸️ |
+
 ---
 crear un sistema de extracción de aire inteligente para baño/galería con control automático y manual. El sistema debe monitorear las condiciones ambientales y activar un ventilador de forma automática, además de permitir control manual con temporizador.
 
@@ -251,24 +255,24 @@ controlFan() - Control del relé y PWM del ventilador.
 
 updateDisplay() - Actualización de la pantalla OLED según el estado.
 
-## 🔌 Pinout Detallado
+## 🔌 Pinout Detallado (v6.0)
 
-Esta tabla describe a qué pin del ESP32 se conecta cada función. Con el nuevo módulo integrado, varias de estas conexiones van a un único componente.
+**Importante**: Esta versión requiere cambiar el cable del relé del GPIO 27 al **GPIO 23**.
 
-| Pin (ESP32) | Componente Principal    | Conexión en Módulo      | Propósito                               |
-| :---------- | :---------------------- | :---------------------- | :-------------------------------------- |
-| **GPIO 21** | Módulo Integrado / BME280 | `oled_sda`              | Datos I2C para pantalla y sensor        |
-| **GPIO 22** | Módulo Integrado / BME280 | `oled_scl`              | Reloj I2C para pantalla y sensor        |
-| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`                  | Lectura analógica del MQ135             |
-| **GPIO 32** | Módulo Integrado        | `encoder_tra`           | Señal A del encoder para navegación     |
-| **GPIO 33** | Módulo Integrado        | `encoder_trb`           | Señal B del encoder para navegación     |
-| **GPIO 25** | Módulo Integrado        | `confirm`               | Botón de Enter/Confirmar                |
-| **GPIO 26** | Módulo Integrado        | `bak`                   | Botón de Back/Cancelar                  |
-| **GPIO 27** | Módulo Relé             | `IN`                    | Activa/desactiva el circuito de 12V     |
-| **GPIO 14** | MOSFET                  | `Gate`                  | Señal PWM para controlar velocidad      |
-| **5V**      | Alimentación            | `VCC`                   | Alimenta el Relé y el MQ135             |
-| **3.3V**    | Alimentación            | `3v3-5v` (Módulo), `VCC` | Alimenta Módulo Integrado y BME280      |
-| **GND**     | Tierra Común            | `gnd` (Módulo), `GND`   | Conexión a tierra para todos los comp.  |
+| Pin (ESP32) | Componente Principal    | Conexión en Módulo      | Función Lógica v6.0 |
+| :---------- | :---------------------- | :---------------------- | :------------------ |
+| **GPIO 21** | Módulo Integrado / BME280 | `oled_sda`              | Datos I2C           |
+| **GPIO 22** | Módulo Integrado / BME280 | `oled_scl`              | Reloj I2C           |
+| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`                  | Lectura Analógica   |
+| **GPIO 32** | Módulo Integrado        | `encoder_tra`           | Encoder A (Giro)    |
+| **GPIO 33** | Módulo Integrado        | `encoder_trb`           | Encoder B (Giro)    |
+| **GPIO 27** | Módulo Integrado        | `encoder_push`          | **OK / Confirmar**  |
+| **GPIO 25** | Módulo Integrado        | `confirm`               | **Back / Cancelar** |
+| **GPIO 26** | Módulo Integrado        | `bak`                   | **Pausa / Reanudar**|
+| **GPIO 23** | Módulo Relé             | `IN`                    | Control del Relé    |
+| **GPIO 14** | MOSFET                  | `Gate`                  | Control PWM         |
+| **3.3V**    | Alimentación            | `3v3-5v` (Módulo), `VCC` | Alimentación Lógica |
+| **GND**     | Tierra Común            | `gnd` (Módulo), `GND`   | Tierra Común        |
 
 
 

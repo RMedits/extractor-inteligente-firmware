@@ -1,5 +1,24 @@
 # Changelog
 
+## [6.0.0] - 2025-11-06
+
+### ✨ Añadido
+- **Nueva Lógica de Botones Ergonómica**:
+  - **Encoder (Pulsar)** ahora es **OK/Confirmar**.
+  - **Botón `CONFIRM`** ahora es **Back/Cancelar**.
+  - **Botón `BAK`** ahora activa la **Pausa de Emergencia**.
+- **Modo Pausa**:
+  - Permite detener el ventilador y congelar el temporizador en cualquier momento.
+  - Al reanudar, el sistema vuelve al estado exacto en el que estaba.
+  - Ideal para interrupciones temporales sin cancelar la configuración manual.
+- Nuevo estado `PAUSA` en la máquina de estados.
+
+### 🔧 Cambiado
+- **¡CAMBIO DE PINOUT CRÍTICO!**
+  - El control del **Relé** se ha movido del `GPIO 27` al **`GPIO 23`**.
+  - El **botón del encoder (OK)** ahora se conecta al `GPIO 27`.
+- Toda la documentación (README, diagramas, guías) ha sido actualizada para reflejar la v6.0.
+
 ## [4.0.0] - 2024-11-04
 
 ### ✨ Añadido

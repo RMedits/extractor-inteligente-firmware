@@ -1,429 +1,574 @@
 /*
-  Firmware Extractor Inteligente v4.0
-  ===================================
-  Controla un extractor de aire basado en sensores y permite operación manual
-  con selección de tiempo y velocidad.
-
-  - Microcontrolador: ESP32 DevKit
-  - Sensores: BME280 (I2C), MQ135 (Analógico)
-  - Interfaz: OLED 128x64 (I2C), Encoder Rotativo, 2 Botones
-  - Actuadores: Relé + MOSFET (PWM)
-
-  Autor: Gemini CLI
-  Fecha: 2025-11-04
+  Extractor Inteligente para Baño/Galería
+  ESP32 + BME280 + MQ135 + Módulo OLED Integrado
+  
+  CONTROLES OPTIMIZADOS:
+  - Encoder (girar): Navegar opciones
+  - ENCODER_PUSH (pulsar rueda): OK/Confirmar/Avanzar
+  - CONFIRM (botón lateral): BACK/Cancelar/Volver
+  - BACK (botón lateral): PAUSA de emergencia (ON/OFF)
+  
+  VERSIÓN 6.0 - Lógica de botones optimizada
+  https://github.com/RMedits/extractor-inteligente-firmware
 */
 
-// ============================================================================
-//  sección de librerías
-// ============================================================================
+// --- LIBRERÍAS ---
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_BME280.h>
 #include <ESP32Encoder.h>
 
-// ============================================================================
-// sección de configuración de hardware (pines)
-// ============================================================================
-// Pantalla OLED I2C
+// --- CONFIGURACIÓN DE PANTALLA OLED ---
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET    -1
-#define I2C_ADDRESS   0x3C
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Sensor BME280 (se probarán las direcciones 0x76 y 0x77)
-
-// Sensor de Calidad de Aire MQ135
+// --- CONFIGURACIÓN DE SENSORES ---
+Adafruit_BME280 bme;
 #define MQ135_PIN 34
 
-// Encoder Rotativo
-#define ENCODER_CLK_PIN 32
-#define ENCODER_DT_PIN  33
+// --- CONFIGURACIÓN DEL MÓDULO INTEGRADO ---
+#define ENCODER_TRA_PIN  32  // ENCODER_TRA → CLK
+#define ENCODER_TRB_PIN  33  // ENCODER_TRB → DT
+#define BTN_ENCODER_PUSH 27  // Botón integrado encoder (pulsar rueda) → OK
+#define BTN_CONFIRM_PIN  25  // Botón lateral CONFIRM → BACK/Cancelar
+#define BTN_BACK_PIN     26  // Botón lateral BACK → PAUSA de emergencia
 
-// Botones Físicos (con pull-up interno)
-#define BTN_ENTER_PIN   25
-#define BTN_BACK_PIN    26
+ESP32Encoder encoder;
 
-// Actuadores del Ventilador
-#define RELAY_PIN    27
+// Nota I2C: OLED_SDA → GPIO21, OLED_SCL → GPIO22
+
+// --- CONFIGURACIÓN DEL VENTILADOR ---
+#define RELAY_PIN    23
 #define FAN_PWM_PIN  14
 #define PWM_CHANNEL  0
 #define PWM_FREQUENCY 25000
 #define PWM_RESOLUTION 8
 
-// ============================================================================
-// sección de configuración de software (parámetros)
-// ============================================================================
-// Umbrales para el Modo Automático
+// --- UMBRALES PARA MODO AUTOMÁTICO ---
 #define HUMIDITY_THRESHOLD_HIGH 70.0f
 #define HUMIDITY_THRESHOLD_LOW  65.0f
 #define TEMP_THRESHOLD          30.0f
 #define AIR_QUALITY_THRESHOLD   600
 
-// Parámetros de anti-rebote para botones
-#define DEBOUNCE_DELAY 250 // ms
-
-// Rango del PWM para el motor (evita que se detenga a baja potencia)
-#define PWM_MIN_DUTY 80
-#define PWM_MAX_DUTY 255
-
-// ============================================================================
-// sección de objetos y variables globales
-// ============================================================================
-// --- Objetos de Librerías ---
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-Adafruit_BME280 bme;
-ESP32Encoder encoder;
-
-// --- Máquina de Estados ---
-enum Mode { AUTOMATICO, MANUAL_SELECCION_TIEMPO, MANUAL_SELECCION_VELOCIDAD, MANUAL_ACTIVO };
+// --- ESTADOS DEL SISTEMA ---
+enum Mode { 
+  AUTOMATICO, 
+  SELECCION_TIEMPO, 
+  SELECCION_VELOCIDAD, 
+  MANUAL_ACTIVO,
+  PAUSA  // Nuevo estado para pausa de emergencia
+};
 Mode currentMode = AUTOMATICO;
+Mode previousMode = AUTOMATICO; // Para recordar el estado antes de pausa
 
-// --- Variables de Sensores ---
+// Variables de sensores
 float temperature = 0.0;
 float humidity = 0.0;
 int airQuality = 0;
 
-// --- Variables de Modo Manual ---
-const long manualDurations[] = { 30 * 60000, 60 * 60000, 90 * 60000 }; // en ms
+// Variables del modo manual - TIEMPO
+const long manualDurations[] = { 30 * 60000, 60 * 60000, 90 * 60000 };
 const char* manualDurationLabels[] = {"30 MIN", "60 MIN", "90 MIN"};
-int selectedDurationIndex = 0;
+int selectedDuration = 0;
 
-const int manualSpeeds[] = {25, 50, 75, 100};
-const char* manualSpeedLabels[] = {"25% (Baja)", "50% (Media)", "75% (Alta)", "100% (Max)"};
-int selectedSpeedIndex = 0;
+// Variables del modo manual - VELOCIDAD
+const int speedOptions[] = { 25, 50, 75, 100 };
+const char* speedLabels[] = {"25% (Baja)", "50% (Media)", "75% (Alta)", "100% (Max)"};
+int selectedSpeed = 1;
 
+// Variables del temporizador
 unsigned long manualTimerStartTime = 0;
 long manualTimeLeft = 0;
+long pausedTimeLeft = 0;  // Tiempo guardado al pausar
+int manualFanSpeed = 0;
+int pausedFanSpeed = 0;   // Velocidad guardada al pausar
 
-// --- Variables de Controles ---
+// Variables del encoder
 long oldEncoderPosition = 0;
-bool btnEnterPressed = false;
-bool btnBackPressed = false;
-unsigned long lastEnterPressTime = 0;
+
+// Variables de botones con anti-rebote
+bool btnOkPressed = false;        // ENCODER_PUSH
+bool btnBackPressed = false;      // CONFIRM (actúa como BACK)
+bool btnPausePressed = false;     // BACK (pausa emergencia)
+unsigned long lastOkPressTime = 0;
 unsigned long lastBackPressTime = 0;
+unsigned long lastPausePressTime = 0;
+const long debounceDelay = 250;
 
-// --- Variables del Ventilador ---
-int currentFanSpeed = 0; // En porcentaje (0-100)
+// Control del ventilador
+int currentFanSpeed = 0;
+bool isPaused = false;
 
-// --- Prototipos de Funciones ---
+// --- PROTOTIPOS DE FUNCIONES ---
 void handleControls();
 void readSensors();
 void runLogic();
 void controlFan(int percentage);
 void updateDisplay();
 
-// ============================================================================
-// sección de setup (inicialización)
-// ============================================================================
+// --- FUNCIÓN SETUP ---
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n╔════════════════════════════════╗");
-  Serial.println("║  EXTRACTOR INTELIGENTE v4.0   ║");
-  Serial.println("╚════════════════════════════════╝\n");
+  Serial.println("\n╔════════════════════════════════════╗");
+  Serial.println("║  EXTRACTOR INTELIGENTE v6.0       ║");
+  Serial.println("║  Lógica de Botones Optimizada     ║");
+  Serial.println("╚════════════════════════════════════╝\n");
 
-  // --- Inicialización de Pines ---
+  // Inicializar pines
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
-  pinMode(BTN_ENTER_PIN, INPUT_PULLUP);
+  
+  pinMode(BTN_ENCODER_PUSH, INPUT_PULLUP);
+  pinMode(BTN_CONFIRM_PIN, INPUT_PULLUP);
   pinMode(BTN_BACK_PIN, INPUT_PULLUP);
 
-  // --- Configuración del PWM ---
+  // Configurar PWM
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOLUTION);
   ledcAttachPin(FAN_PWM_PIN, PWM_CHANNEL);
   ledcWrite(PWM_CHANNEL, 0);
 
-  // --- Configuración del Encoder ---
-  encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
+  // Configurar encoder
+  encoder.attachHalfQuad(ENCODER_TRA_PIN, ENCODER_TRB_PIN);
   encoder.setCount(0);
   
-  // --- Inicialización de la Pantalla OLED ---
-  if(!display.begin(SSD1306_SWITCHCAPVCC, I2C_ADDRESS)) {
-    Serial.println("❌ ERROR: Fallo al iniciar SSD1306. Verifica la dirección I2C.");
+  // Inicializar OLED
+  Serial.print("Iniciando OLED... ");
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("❌ ERROR");
     while(true);
   }
+  Serial.println("✓ OK");
   
-  // --- Pantalla de Bienvenida ---
+  // Pantalla de bienvenida
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(5, 5);
   display.println("Extractor");
   display.setCursor(5, 30);
-  display.println("Inteligente");
+  display.println("v6.0");
   display.setTextSize(1);
-  display.setCursor(35, 52);
-  display.println("v4.0");
+  display.setCursor(10, 52);
+  display.println("Logica optimizada");
   display.display();
   delay(2000);
 
-  // --- Inicialización del Sensor BME280 ---
+  // Inicializar BME280
   Serial.print("Iniciando BME280... ");
   if (!bme.begin(0x76) && !bme.begin(0x77)) {
-    Serial.println("❌ ERROR: Sensor BME280 no encontrado.");
+    Serial.println("❌ ERROR");
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(0, 10);
-    display.println("ERROR: BME280");
-    display.println("no detectado.");
-    display.println("Verifica I2C.");
+    display.println("ERROR:");
+    display.println("BME280 no detectado");
+    display.println("");
+    display.println("Verifica I2C");
     display.display();
     while(true);
   }
   Serial.println("✓ OK");
   
-  // --- Calibración del Sensor MQ135 ---
-  Serial.println("Calibrando sensor MQ135 (30s)...");
+  // Calibración MQ135
+  Serial.println("Calibrando MQ135...");
   display.clearDisplay();
   display.setTextSize(1);
-  display.setCursor(10, 20);
-  display.println("Calibrando Aire...");
+  display.setCursor(10, 15);
+  display.println("Calibrando");
+  display.setCursor(10, 30);
+  display.println("sensor de aire");
   display.display();
+  
   for(int i = 30; i > 0; i--) {
-    display.fillRect(10, 40, 108, 10, SSD1306_BLACK);
-    display.setCursor(10, 40);
-    display.printf("Espere... %02d s", i);
+    display.fillRect(0, 50, 128, 14, SSD1306_BLACK);
+    display.setCursor(40, 52);
+    display.print(i);
+    display.print(" seg");
     display.display();
     delay(1000);
   }
   
-  Serial.println("✓ Sistema listo.\n");
+  Serial.println("\n✓ Sistema listo");
+  Serial.println("\nCONTROLES:");
+  Serial.println("  Encoder (girar): Navegar");
+  Serial.println("  Encoder (pulsar): OK/Confirmar");
+  Serial.println("  CONFIRM: Cancelar/Volver");
+  Serial.println("  BACK: Pausa emergencia ON/OFF\n");
 }
 
-// ============================================================================
-// sección de loop principal
-// ============================================================================
+// --- FUNCIÓN LOOP ---
 void loop() {
   handleControls();
   readSensors();
   runLogic();
   updateDisplay();
-  delay(50); // Pequeña pausa para estabilidad
+  delay(50);
 }
 
-// ============================================================================
-// sección de manejo de controles (encoder y botones)
-// ============================================================================
+// --- MANEJO DE CONTROLES ---
 void handleControls() {
-  // --- Lectura del Botón ENTER con Anti-rebote ---
-  if (digitalRead(BTN_ENTER_PIN) == LOW && (millis() - lastEnterPressTime > DEBOUNCE_DELAY)) {
-    lastEnterPressTime = millis();
-    btnEnterPressed = true;
-    Serial.println("🔘 ENTER presionado");
+  // Botón ENCODER_PUSH (pulsar rueda) → OK
+  if (digitalRead(BTN_ENCODER_PUSH) == LOW && 
+      (millis() - lastOkPressTime > debounceDelay)) {
+    lastOkPressTime = millis();
+    btnOkPressed = true;
+    Serial.println("✓ OK presionado");
   }
 
-  // --- Lectura del Botón BACK con Anti-rebote ---
-  if (digitalRead(BTN_BACK_PIN) == LOW && (millis() - lastBackPressTime > DEBOUNCE_DELAY)) {
+  // Botón CONFIRM (lateral) → BACK/Cancelar
+  if (digitalRead(BTN_CONFIRM_PIN) == LOW && 
+      (millis() - lastBackPressTime > debounceDelay)) {
     lastBackPressTime = millis();
     btnBackPressed = true;
-    Serial.println("🔙 BACK presionado");
+    Serial.println("⬅️ BACK presionado");
   }
 
-  // --- Lectura del Encoder Rotativo ---
-  if (currentMode == MANUAL_SELECCION_TIEMPO || currentMode == MANUAL_SELECCION_VELOCIDAD) {
-    long newEncoderPosition = encoder.getCount() / 2;
-    if (newEncoderPosition != oldEncoderPosition) {
-      int direction = (newEncoderPosition > oldEncoderPosition) ? 1 : -1;
+  // Botón BACK (lateral) → PAUSA emergencia
+  if (digitalRead(BTN_BACK_PIN) == LOW && 
+      (millis() - lastPausePressTime > debounceDelay)) {
+    lastPausePressTime = millis();
+    btnPausePressed = true;
+    Serial.println("⏸️ PAUSA presionado");
+  }
 
-      if (currentMode == MANUAL_SELECCION_TIEMPO) {
-        selectedDurationIndex = (selectedDurationIndex + direction + 3) % 3;
-        Serial.printf("🔄 Selección Tiempo: %s\n", manualDurationLabels[selectedDurationIndex]);
-      } else {
-        selectedSpeedIndex = (selectedSpeedIndex + direction + 4) % 4;
-        Serial.printf("🔄 Selección Velocidad: %s\n", manualSpeedLabels[selectedSpeedIndex]);
+  // Encoder rotativo (solo en modos de selección)
+  if (currentMode == SELECCION_TIEMPO || currentMode == SELECCION_VELOCIDAD) {
+    long newEncoderPosition = encoder.getCount() / 2;
+    
+    if (newEncoderPosition != oldEncoderPosition) {
+      if (currentMode == SELECCION_TIEMPO) {
+        if (newEncoderPosition > oldEncoderPosition) {
+          selectedDuration++;
+          if (selectedDuration > 2) selectedDuration = 0;
+        } else {
+          selectedDuration--;
+          if (selectedDuration < 0) selectedDuration = 2;
+        }
+        Serial.print("🔄 Tiempo: ");
+        Serial.println(manualDurationLabels[selectedDuration]);
+      }
+      else if (currentMode == SELECCION_VELOCIDAD) {
+        if (newEncoderPosition > oldEncoderPosition) {
+          selectedSpeed++;
+          if (selectedSpeed > 3) selectedSpeed = 0;
+        } else {
+          selectedSpeed--;
+          if (selectedSpeed < 0) selectedSpeed = 3;
+        }
+        Serial.print("🔄 Velocidad: ");
+        Serial.println(speedLabels[selectedSpeed]);
       }
       oldEncoderPosition = newEncoderPosition;
     }
   }
 }
 
-// ============================================================================
-// sección de lectura de sensores
-// ============================================================================
+// --- LECTURA DE SENSORES ---
 void readSensors() {
-  // --- Lectura BME280 ---
   temperature = bme.readTemperature();
   humidity = bme.readHumidity();
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("⚠️ Lectura de BME280 inválida.");
-    temperature = 0.0; humidity = 0.0; // Evitar valores corruptos
-  }
-
-  // --- Lectura MQ135 ---
   airQuality = analogRead(MQ135_PIN);
-  if (airQuality < 0 || airQuality > 4095) {
-      Serial.println("⚠️ Lectura de MQ135 fuera de rango.");
-      airQuality = 0; // Evitar valores corruptos
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("⚠️ Lectura BME280 inválida");
+    return;
   }
 
-  // --- Log de Sensores (cada 10 segundos) ---
   static unsigned long lastDebugTime = 0;
   if (millis() - lastDebugTime > 10000) {
-    Serial.printf("📊 Sensores - T: %.1f°C | H: %.1f%% | Aire: %d\n", temperature, humidity, airQuality);
+    Serial.printf("📊 T: %.1f°C | H: %.1f%% | Aire: %d\n", 
+                  temperature, humidity, airQuality);
     lastDebugTime = millis();
   }
 }
 
-// ============================================================================
-// sección de lógica de control (máquina de estados)
-// ============================================================================
+// --- LÓGICA PRINCIPAL ---
 void runLogic() {
-  // --- Lógica de Transición por Botón ENTER ---
-  if (btnEnterPressed) {
-    btnEnterPressed = false;
+  // === BOTÓN PAUSA (PRIORIDAD MÁXIMA) ===
+  if (btnPausePressed) {
+    btnPausePressed = false;
+    
+    if (!isPaused) {
+      // ACTIVAR PAUSA
+      Serial.println("⏸️ PAUSA ACTIVADA");
+      isPaused = true;
+      previousMode = currentMode;
+      
+      // Guardar estado del temporizador si está en manual
+      if (currentMode == MANUAL_ACTIVO) {
+        pausedTimeLeft = manualTimeLeft;
+        pausedFanSpeed = manualFanSpeed;
+      }
+      
+      // Apagar ventilador inmediatamente
+      controlFan(0);
+      currentMode = PAUSA;
+    } 
+    else {
+      // DESACTIVAR PAUSA
+      Serial.println("▶️ PAUSA DESACTIVADA - Reanudando");
+      isPaused = false;
+      currentMode = previousMode;
+      
+      // Restaurar temporizador si estaba en manual
+      if (currentMode == MANUAL_ACTIVO) {
+        manualTimeLeft = pausedTimeLeft;
+        manualFanSpeed = pausedFanSpeed;
+        manualTimerStartTime = millis() - (manualDurations[selectedDuration] - pausedTimeLeft);
+        controlFan(manualFanSpeed);
+      }
+    }
+    return;
+  }
+
+  // No procesar otros botones si está en pausa
+  if (isPaused) {
+    return;
+  }
+
+  // === BOTÓN OK (ENCODER_PUSH) ===
+  if (btnOkPressed) {
+    btnOkPressed = false;
+    
     switch (currentMode) {
       case AUTOMATICO:
-        currentMode = MANUAL_SELECCION_TIEMPO;
-        selectedDurationIndex = 0;
-        encoder.setCount(0); oldEncoderPosition = 0;
+        Serial.println("➡️ Modo: SELECCIÓN TIEMPO");
+        currentMode = SELECCION_TIEMPO;
+        selectedDuration = 0;
+        encoder.setCount(0);
+        oldEncoderPosition = 0;
         controlFan(0);
         break;
-      case MANUAL_SELECCION_TIEMPO:
-        currentMode = MANUAL_SELECCION_VELOCIDAD;
-        selectedSpeedIndex = 0;
-        encoder.setCount(0); oldEncoderPosition = 0;
+        
+      case SELECCION_TIEMPO:
+        Serial.print("➡️ Tiempo: ");
+        Serial.print(manualDurationLabels[selectedDuration]);
+        Serial.println(" → SELECCIÓN VELOCIDAD");
+        currentMode = SELECCION_VELOCIDAD;
+        selectedSpeed = 1;
+        encoder.setCount(selectedSpeed * 2);
+        oldEncoderPosition = selectedSpeed;
         break;
-      case MANUAL_SELECCION_VELOCIDAD:
+        
+      case SELECCION_VELOCIDAD:
+        Serial.print("✅ MANUAL ACTIVO: ");
+        Serial.print(manualDurationLabels[selectedDuration]);
+        Serial.print(" a ");
+        Serial.print(speedOptions[selectedSpeed]);
+        Serial.println("%");
         currentMode = MANUAL_ACTIVO;
         manualTimerStartTime = millis();
-        manualTimeLeft = manualDurations[selectedDurationIndex];
-        controlFan(manualSpeeds[selectedSpeedIndex]);
-        Serial.printf("✅ Iniciando modo MANUAL: %s a %s\n", manualDurationLabels[selectedDurationIndex], manualSpeedLabels[selectedSpeedIndex]);
+        manualTimeLeft = manualDurations[selectedDuration];
+        manualFanSpeed = speedOptions[selectedSpeed];
+        controlFan(manualFanSpeed);
         break;
+        
       case MANUAL_ACTIVO:
+        Serial.println("⏹️ Manual cancelado → AUTO");
         currentMode = AUTOMATICO;
         controlFan(0);
+        break;
+        
+      default:
         break;
     }
     return;
   }
 
-  // --- Lógica de Transición por Botón BACK ---
+  // === BOTÓN BACK (CONFIRM actúa como BACK) ===
   if (btnBackPressed) {
     btnBackPressed = false;
+    
     switch (currentMode) {
-      case MANUAL_SELECCION_TIEMPO:
-      case MANUAL_ACTIVO:
+      case SELECCION_TIEMPO:
+        Serial.println("⬅️ Cancelado → AUTO");
         currentMode = AUTOMATICO;
         controlFan(0);
         break;
-      case MANUAL_SELECCION_VELOCIDAD:
-        currentMode = MANUAL_SELECCION_TIEMPO;
-        encoder.setCount(0); oldEncoderPosition = 0;
+        
+      case SELECCION_VELOCIDAD:
+        Serial.println("⬅️ Volver a SELECCIÓN TIEMPO");
+        currentMode = SELECCION_TIEMPO;
+        encoder.setCount(selectedDuration * 2);
+        oldEncoderPosition = selectedDuration;
         break;
-      case AUTOMATICO:
-        // Sin función
+        
+      case MANUAL_ACTIVO:
+        Serial.println("⬅️ Manual cancelado → AUTO");
+        currentMode = AUTOMATICO;
+        controlFan(0);
+        break;
+        
+      default:
         break;
     }
     return;
   }
 
-  // --- Lógica de Operación Continua por Modo ---
+  // === LÓGICA SEGÚN MODO ===
   if (currentMode == AUTOMATICO) {
     int fanSpeed = 0;
-    if (humidity >= HUMIDITY_THRESHOLD_HIGH) fanSpeed = 100;
-    else if (humidity >= HUMIDITY_THRESHOLD_LOW) fanSpeed = 70;
-    else if (temperature >= TEMP_THRESHOLD) fanSpeed = 60;
-    else if (airQuality >= AIR_QUALITY_THRESHOLD) fanSpeed = 40;
+    
+    if (humidity >= HUMIDITY_THRESHOLD_HIGH) {
+      fanSpeed = 100;
+    } 
+    else if (humidity >= HUMIDITY_THRESHOLD_LOW) {
+      fanSpeed = 70;
+    }
+    else if (temperature >= TEMP_THRESHOLD) {
+      fanSpeed = 60;
+    }
+    else if (airQuality >= AIR_QUALITY_THRESHOLD) {
+      fanSpeed = 40;
+    }
+    
     controlFan(fanSpeed);
   } 
   else if (currentMode == MANUAL_ACTIVO) {
-    manualTimeLeft = manualDurations[selectedDurationIndex] - (millis() - manualTimerStartTime);
+    manualTimeLeft = manualDurations[selectedDuration] - (millis() - manualTimerStartTime);
+    
     if (manualTimeLeft <= 0) {
-      Serial.println("⏰ Tiempo agotado - Volviendo a AUTOMÁTICO");
+      Serial.println("⏰ Tiempo agotado → AUTO");
       currentMode = AUTOMATICO;
       controlFan(0);
     }
   }
 }
 
-// ============================================================================
-// sección de control del ventilador
-// ============================================================================
+// --- CONTROL DEL VENTILADOR ---
 void controlFan(int percentage) {
-  if (percentage == currentFanSpeed) return; // Evitar cambios innecesarios
-  currentFanSpeed = constrain(percentage, 0, 100);
+  if (percentage == currentFanSpeed) return;
   
-  if (currentFanSpeed == 0) {
+  currentFanSpeed = percentage;
+  
+  if (percentage <= 0) {
     digitalWrite(RELAY_PIN, LOW);
     ledcWrite(PWM_CHANNEL, 0);
     Serial.println("💨 Ventilador: APAGADO");
   } else {
     digitalWrite(RELAY_PIN, HIGH);
-    int pwmValue = map(currentFanSpeed, 1, 100, PWM_MIN_DUTY, PWM_MAX_DUTY);
+    int pwmValue = map(percentage, 1, 100, 80, 255);
     ledcWrite(PWM_CHANNEL, pwmValue);
-    Serial.printf("💨 Ventilador: %d%% (PWM: %d)\n", currentFanSpeed, pwmValue);
+    Serial.printf("💨 Ventilador: %d%% (PWM: %d)\n", percentage, pwmValue);
   }
 }
 
-// ============================================================================
-// sección de actualización de la pantalla oled
-// ============================================================================
+// --- ACTUALIZAR PANTALLA ---
 void updateDisplay() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   
-  // --- Barra Superior de Sensores (siempre visible) ---
+  // Barra superior: sensores
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.printf("T:%.0fC H:%.0f%% A:%d", temperature, humidity, airQuality);
-  display.drawLine(0, 10, SCREEN_WIDTH - 1, 10, SSD1306_WHITE);
+  display.printf("T:%dC H:%d%% A:%d", (int)temperature, (int)humidity, airQuality);
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
   
-  // --- Contenido Principal según el Modo ---
   switch (currentMode) {
     case AUTOMATICO:
       display.setTextSize(2);
-      display.setCursor(15, 22);
+      display.setCursor(15, 18);
       display.println("MODO");
-      display.setCursor(5, 42);
+      display.setCursor(5, 38);
       display.println("AUTOMATICO");
+      
       if (currentFanSpeed > 0) {
         display.setTextSize(1);
         display.setCursor(25, 56);
-        display.printf("VENTILADOR: %d%%", currentFanSpeed);
+        display.printf("VENT: %d%%", currentFanSpeed);
+      } else {
+        display.setTextSize(1);
+        display.setCursor(30, 56);
+        display.print("[ STANDBY ]");
       }
       break;
     
-    case MANUAL_SELECCION_TIEMPO:
+    case SELECCION_TIEMPO:
       display.setTextSize(1);
-      display.setCursor(15, 14);
+      display.setCursor(10, 14);
       display.println("SELECCIONA TIEMPO");
-      display.drawLine(0, 24, SCREEN_WIDTH - 1, 24, SSD1306_WHITE);
+      display.drawLine(0, 24, 127, 24, SSD1306_WHITE);
+      
       for(int i = 0; i < 3; i++) {
         display.setCursor(25, 30 + (i * 11));
-        if (i == selectedDurationIndex) display.printf("> %s <", manualDurationLabels[i]);
-        else display.printf("  %s  ", manualDurationLabels[i]);
+        if (i == selectedDuration) {
+          display.print(">");
+          display.print(" ");
+          display.print(manualDurationLabels[i]);
+          display.print(" <");
+        } else {
+          display.print("  ");
+          display.print(manualDurationLabels[i]);
+        }
       }
-      display.setCursor(10, 56);
-      display.print("ENTER=OK  BACK=X");
+      
+      display.setCursor(15, 56);
+      display.print("OK=Pulsar BACK=X");
       break;
-
-    case MANUAL_SELECCION_VELOCIDAD:
+      
+    case SELECCION_VELOCIDAD:
       display.setTextSize(1);
-      display.setCursor(10, 12);
-      display.println("SELECCIONA VELOCIDAD");
-      display.setCursor(10, 22);
-      display.printf("(Tiempo: %s)", manualDurationLabels[selectedDurationIndex]);
-      display.drawLine(0, 32, SCREEN_WIDTH - 1, 32, SSD1306_WHITE);
-      for(int i = 0; i < 4; i++) {
-        display.setCursor(10, 35 + (i * 7));
-        if (i == selectedSpeedIndex) display.printf("> %s <", manualSpeedLabels[i]);
-        else display.printf("  %s  ", manualSpeedLabels[i]);
+      display.setCursor(5, 13);
+      display.print("SELEC. VELOCIDAD");
+      display.setCursor(15, 22);
+      display.printf("(T:%s)", manualDurationLabels[selectedDuration]);
+      display.drawLine(0, 30, 127, 30, SSD1306_WHITE);
+      
+      int startIdx = max(0, selectedSpeed - 1);
+      int endIdx = min(3, startIdx + 2);
+      
+      for(int i = startIdx; i <= endIdx && i < 4; i++) {
+        int yPos = 33 + ((i - startIdx) * 9);
+        display.setCursor(5, yPos);
+        
+        if (i == selectedSpeed) {
+          display.print(">");
+          display.print(speedLabels[i]);
+        } else {
+          display.print(" ");
+          display.print(speedLabels[i]);
+        }
       }
-      display.setCursor(5, 56);
-      display.print("ENTER=OK  BACK=<");
+      
+      display.setCursor(8, 56);
+      display.print("OK=Pulsar BACK=<");
       break;
       
     case MANUAL_ACTIVO:
       display.setTextSize(2);
-      display.setCursor(10, 18);
+      display.setCursor(10, 16);
       display.println("MANUAL");
-      int secondsLeft = (manualTimeLeft + 999) / 1000;
+      display.setCursor(15, 36);
+      display.println("ACTIVO");
+      
+      display.setTextSize(1);
+      display.setCursor(5, 52);
+      int secondsLeft = manualTimeLeft / 1000;
       int minutes = secondsLeft / 60;
       int seconds = secondsLeft % 60;
+      display.printf("V:%d%% T:%02d:%02d", manualFanSpeed, minutes, seconds);
+      break;
+      
+    case PAUSA:
+      display.setTextSize(2);
+      display.setCursor(20, 20);
+      display.println("PAUSA");
+      
       display.setTextSize(1);
-      display.setCursor(5, 42);
-      display.printf("T: %02d:%02d | %d%%", minutes, seconds, currentFanSpeed);
+      display.setCursor(10, 45);
+      display.print("Ventilador apagado");
+      
+      // Mostrar tiempo congelado si estaba en manual
+      if (previousMode == MANUAL_ACTIVO) {
+        display.setCursor(20, 56);
+        int secLeft = pausedTimeLeft / 1000;
+        int min = secLeft / 60;
+        int sec = secLeft % 60;
+        display.printf("Tiempo:%02d:%02d", min, sec);
+      }
       break;
   }
 
