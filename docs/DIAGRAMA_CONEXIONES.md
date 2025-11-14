@@ -30,30 +30,30 @@ graph LR
         Power12V -- "GND Común" --> GND;
     end
 
-    ESP32[ESP32 DevKit]
+    ESP32[ESP32 DevKit HW-394]
 
     %% Conexiones al Módulo Integrado
-    ESP32 -- "GPIO 21 (SDA)" --> PinSDA;
-    ESP32 -- "GPIO 22 (SCL)" --> PinSCL;
-    ESP32 -- "GPIO 32 (Encoder A)" --> PinTRA;
-    ESP32 -- "GPIO 33 (Encoder B)" --> PinTRB;
-    ESP32 -- "GPIO 27 (OK/Enter)" --> PinPush;
-    ESP32 -- "GPIO 25 (Back/Cancel)" --> PinConfirm;
-    ESP32 -- "GPIO 26 (Pause)" --> PinBak;
+    ESP32 -- "GPIO 21 (SDA) · Pin 11 (D21)" --> PinSDA;
+    ESP32 -- "GPIO 22 (SCL) · Pin 14 (D22)" --> PinSCL;
+    ESP32 -- "GPIO 32 (Encoder A) · Pin 25 (D32)" --> PinTRA;
+    ESP32 -- "GPIO 33 (Encoder B) · Pin 24 (D33)" --> PinTRB;
+    ESP32 -- "GPIO 27 (OK/Enter) · Pin 21 (D27)" --> PinPush;
+    ESP32 -- "GPIO 25 (Back/Cancel) · Pin 23 (D25)" --> PinConfirm;
+    ESP32 -- "GPIO 26 (Pause) · Pin 22 (D26)" --> PinBak;
     ESP32 -- "3.3V" --> Pin3V;
     ESP32 -- "GND" --> PinGND;
 
     %% Conexiones a otros periféricos
-    ESP32 -- "GPIO 21 (SDA)" --> BME280;
-    ESP32 -- "GPIO 22 (SCL)" --> BME280;
-    ESP32 -- "GPIO 34 (Analógico)" --> MQ135;
+    ESP32 -- "GPIO 21 (SDA) · Pin 11 (D21)" --> BME280;
+    ESP32 -- "GPIO 22 (SCL) · Pin 14 (D22)" --> BME280;
+    ESP32 -- "GPIO 34 (Analógico) · Pin 27 (D34)" --> MQ135;
     
     %% Conexiones al circuito de potencia
-    ESP32 -- "GPIO 23 (Control Relé)" --> Relay;
-    ESP32 -- "GPIO 14 (PWM)" --> MOSFET;
+    ESP32 -- "GPIO 23 (Control Relé) · Pin 15 (D23)" --> Relay;
+    ESP32 -- "GPIO 14 (PWM) · Pin 20 (D14)" --> MOSFET;
 
     style ESP32 fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
     style perifericos fill:#2196F3,color:#fff
     style modulo fill:#FF9800,color:#fff
-    style potencia fill:#F4433G,color:#fff
+    style potencia fill:#F44336,color:#fff
 ```

@@ -6,7 +6,7 @@ Esta guía detalla los requisitos de alimentación para el proyecto, asegurando 
 
 Este circuito alimenta el cerebro del sistema.
 
-- **Componentes Alimentados**: ESP32 DevKit, Pantalla OLED, Sensor BME280, Sensor MQ135, Bobina del Relé.
+- **Componentes Alimentados**: ESP32 DevKit HW-394, Pantalla OLED, Sensor BME280, Sensor MQ135, Bobina del Relé.
 - **Consumo Estimado**:
   - **Reposo**: ~230 mA (0.23 A)
   - **Máximo**: ~510 mA (0.51 A)

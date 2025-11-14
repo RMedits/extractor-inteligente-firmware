@@ -8,7 +8,7 @@ graph TD
         direction LR
 
         subgraph "Zona de Control (Bajo Voltaje, 3.3V/5V)"
-            id1[ESP32 DevKit]
+            id1[ESP32 DevKit HW-394]
             id2(Placa de Conexiones / Protoboard)
             id1 -- "Cableado Corto y Ordenado" --> id2
         end
@@ -21,7 +21,7 @@ graph TD
         end
 
         %% Conexiones entre zonas
-        id1 -- "GPIO 27 (Control Relé)" --> id4
+        id1 -- "GPIO 23 (Control Relé)" --> id4
         id1 -- "GPIO 14 (PWM MOSFET)" --> id5
     end
 

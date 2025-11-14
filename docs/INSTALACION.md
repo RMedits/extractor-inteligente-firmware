@@ -35,7 +35,7 @@ Tienes dos opciones principales para compilar y subir el código.
    - Selecciona "Open Project" y elige la carpeta que acabas de clonar.
 
 3. **Compila y Sube el Firmware**:
-   - Conecta tu placa ESP32 DevKit a tu ordenador por USB.
+   - Conecta tu placa ESP32 DevKit HW-394 (USB-C) a tu ordenador por USB.
    - En la barra de estado inferior de VS Code, haz clic en el icono de la flecha (→) que dice "PlatformIO: Upload".
    - PlatformIO compilará el proyecto, instalará las dependencias y subirá el firmware a la placa.
 

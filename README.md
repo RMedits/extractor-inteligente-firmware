@@ -43,7 +43,7 @@ crear un sistema de extracción de aire inteligente para baño/galería con cont
 
 Hardware Principal
 
-Microcontrolador: ESP32 DevKit (con WiFi/Bluetooth integrado)
+Microcontrolador: ESP32 DevKit HW-394 (USB-C, ESP32-WROOM-32 con WiFi/Bluetooth integrado)
 
 Pantalla: OLED 128x64 píxeles con interfaz I2C
 
@@ -70,6 +70,18 @@ Alimentación:
 Fuente de alimentación 12V para el ventilador
 
 Puerto USB para el ESP32 (o alimentación desde 5V externo)
+
+### 📟 Placa ESP32 utilizada
+
+La placa base es el **ESP32 DevKit HW-394** (también comercializado como *ESP32 Development Board Type-C 5V*):
+
+- USB-C nativo con conversor CH340C/CP2102 según la serigrafía recibida.
+- Regulador integrado AMS1117 que entrega **3.3V** a los periféricos desde la entrada USB/VIN de **5V**.
+- Dos hileras de 15 pines (30 en total) con serigrafía tipo `DXX` que corresponde al número de GPIO real.
+- Pines VIN (5V) y GND ubicados junto al conector USB para alimentar relé y sensores que requieren 5V.
+- Compatible con WiFi 2.4 GHz + Bluetooth/BLE del módulo ESP32-WROOM-32.
+
+> 📘 En `docs/ESP32_DEVKIT_HW-394.md` se documentan las especificaciones completas, modos de alimentación y recomendaciones de conexión específicas para esta placa.
 
 🎯 FUNCIONALIDAD REQUERIDA
 
@@ -265,20 +277,21 @@ Para evitar confusiones con el cableado, puedes consultar un diagrama de pines d
 
 **Importante**: Esta versión requiere cambiar el cable del relé del GPIO 27 al **GPIO 23**.
 
-| Pin (ESP32) | Componente Principal    | Conexión en Módulo      | Función Lógica v6.0 |
-| :---------- | :---------------------- | :---------------------- | :------------------ |
-| **GPIO 21** | Módulo Integrado / BME280 | `oled_sda`              | Datos I2C           |
-| **GPIO 22** | Módulo Integrado / BME280 | `oled_scl`              | Reloj I2C           |
-| **GPIO 34** | Sensor Calidad de Aire  | `AOUT`                  | Lectura Analógica   |
-| **GPIO 32** | Módulo Integrado        | `encoder_tra`           | Encoder A (Giro)    |
-| **GPIO 33** | Módulo Integrado        | `encoder_trb`           | Encoder B (Giro)    |
-| **GPIO 27** | Módulo Integrado        | `encoder_push`          | **OK / Confirmar**  |
-| **GPIO 25** | Módulo Integrado        | `confirm`               | **Back / Cancelar** |
-| **GPIO 26** | Módulo Integrado        | `bak`                   | **Pausa / Reanudar**|
-| **GPIO 23** | Módulo Relé             | `IN`                    | Control del Relé    |
-| **GPIO 14** | MOSFET                  | `Gate`                  | Control PWM         |
-| **3.3V**    | Alimentación            | `3v3-5v` (Módulo), `VCC` | Alimentación Lógica |
-| **GND**     | Tierra Común            | `gnd` (Módulo), `GND`   | Tierra Común        |
+| Pin (ESP32) | Pin físico / serigrafía | Componente Principal    | Conexión en Módulo      | Función Lógica v6.0 |
+| :---------- | :---------------------- | :---------------------- | :---------------------- | :------------------ |
+| **GPIO 21** | Pin 11 · D21            | Módulo Integrado / BME280 | `oled_sda`              | Datos I2C           |
+| **GPIO 22** | Pin 14 · D22            | Módulo Integrado / BME280 | `oled_scl`              | Reloj I2C           |
+| **GPIO 34** | Pin 27 · D34            | Sensor Calidad de Aire  | `AOUT`                  | Lectura Analógica   |
+| **GPIO 32** | Pin 25 · D32            | Módulo Integrado        | `encoder_tra`           | Encoder A (Giro)    |
+| **GPIO 33** | Pin 24 · D33            | Módulo Integrado        | `encoder_trb`           | Encoder B (Giro)    |
+| **GPIO 27** | Pin 21 · D27            | Módulo Integrado        | `encoder_push`          | **OK / Confirmar**  |
+| **GPIO 25** | Pin 23 · D25            | Módulo Integrado        | `confirm`               | **Back / Cancelar** |
+| **GPIO 26** | Pin 22 · D26            | Módulo Integrado        | `bak`                   | **Pausa / Reanudar**|
+| **GPIO 23** | Pin 15 · D23            | Módulo Relé             | `IN`                    | Control del Relé    |
+| **GPIO 14** | Pin 20 · D14            | MOSFET                  | `Gate`                  | Control PWM         |
+| **3.3V**    | Pin 1 · 3V3             | Alimentación            | `3v3-5v` (Módulo), `VCC` | Alimentación Lógica |
+| **GND**     | Pin 2 / 17 · GND        | Tierra Común            | `gnd` (Módulo), `GND`   | Tierra Común        |
+| **VIN (5V)**| Pin 16 · VIN            | Alimentación            | `VIN`                   | Alimentación Relé/MQ135 |
 
 
 
