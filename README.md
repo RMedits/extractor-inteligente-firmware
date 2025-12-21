@@ -1,41 +1,41 @@
-# 🌬️ Extractor de Aire Inteligente v6.4C FINAL
+# 🌬️ Extractor de Aire Inteligente v6.5C FINAL (Dual 12V/24V)
 
-Sistema de extracción automatizado basado en ESP32 para baño o galería, optimizado para ventiladores industriales de alta potencia (Delta 12V 2.70A).
+Sistema de extracción automatizado basado en ESP32, diseñado para operar con ventiladores industriales Delta de alta potencia en dos configuraciones: 12V (Galería) y 24V (Baño).
 
 ## 🚀 Características Finales
-- **Modo Automático:** Control inteligente de velocidad basado en Humedad (AHT20/BMP280), Temperatura (AHT20/BMP280) y Calidad de Aire (MQ135).
-- **Protección Total:**
-  - **Relé de Seguridad:** Corte físico de la alimentación de 12V (0W consumo standby).
-  - **Buffer PWM:** Etapa MOSFET para proteger el GPIO del ESP32 de voltajes peligrosos del ventilador.
-- **Control Preciso:** Señal PWM invertida de 25kHz para gestión suave de velocidad.
-- **Modo Manual:** Temporizador programable (30/60/90 min) con selección de potencia.
-- **Interfaz OLED:** Pantalla de 1.3" (Driver SH1106) con encoder rotativo.
-- **Robustez:** Watchdog Timer (WDT) activo.
+- **Soporte Dual Hardware:**
+  - **Variante A (12V):** Control vía MOSFET Buffer.
+  - **Variante B (24V):** Control vía Optoacoplador (Aislamiento Total).
+- **Lógica Unificada:** Firmware único con lógica PWM invertida compatible con ambos circuitos.
+- **Modo Automático:** Control inteligente (Humedad/Temp/Aire).
+- **Seguridad:**
+  - **Relé:** Corte físico de energía.
+  - **Watchdog:** Reinicio automático ante fallos.
+  - **Protección GPIO:** Buffer hardware obligatorio para señal PWM.
+- **Interfaz:** OLED 1.3" (SH1106) + Encoder EC11.
 
-## 🛠️ Hardware Confirmado
+## ⚠️ Advertencia Importante: Colores Delta
+Los ventiladores Delta tienen un código de colores NO ESTÁNDAR:
+- **ROJO:** +12V/24V
+- **NEGRO:** GND
+- **AMARILLO:** PWM (Señal de control)
+- **AZUL:** TACH (No usar para PWM)
+
+**¡Conectar 24V al ESP32 destruirá el chip!** Siga estrictamente el `esquema_ conexiones.md`.
+
+## 🛠️ Hardware Soportado
 - **Microcontrolador:** ESP32-WROOM-32.
-- **Sensores:** AHT20 + BMP280 + MQ135.
-- **Control:** Módulo OLED 1.3" (SH1106) + Encoder EC11.
+- **Sensores:** AHT20 (Humedad) + BMP280 (Temp/Presión) + MQ135 (Aire).
+- **Control:** OLED 1.3" (SH1106).
 - **Actuadores:**
-  - Relé KY-019 (Corte 12V).
-  - MOSFET FQP30N06L (Buffer de señal PWM).
-- **Ventilador:** Delta QFR1212GHE (12V, 2.70A, 4 Pines).
-
-## 📌 Pinout Resumido
-| Componente | Pin ESP32 |
-| :--- | :--- |
-| **I2C** | 21 (SDA), 22 (SCL) |
-| **Encoder** | 32, 33, 27 |
-| **Botones** | 25 (Back), 26 (Pause) |
-| **Relé** | 23 |
-| **PWM Buffer**| 14 |
-| **MQ135** | 34 |
+  - Ventilador 12V: Delta QFR1212GHE (con MOSFET Buffer).
+  - Ventilador 24V: Delta PFB1224UHE (con Optoacoplador).
 
 ## 💻 Instalación
 1. Clonar este repositorio.
 2. Abrir con **PlatformIO**.
 3. Compilar y subir al ESP32.
-4. Las librerías necesarias se descargan automáticamente.
+4. Consultar `esquema_ conexiones.md` para elegir su variante de montaje.
 
 ## 📜 Licencia
-Este proyecto es de código abierto. Siéntete libre de mejorarlo.
+Código abierto. Diseñado para alta fiabilidad y seguridad eléctrica.

@@ -1,7 +1,8 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.4C
+  Extractor Inteligente para Bano/Galeria v6.5C
   Hardware: ESP32 38-pin + Shield + AHT20 + BMP280 + MQ135 + OLED 1.3" (SH1106) + LEDs Estado
-  Control: Ventilador 4-Pin Delta (PWM Invertido por MOSFET Buffer + Rele Corte)
+  Control: Ventilador 4-Pin Delta (PWM Invertido por MOSFET/Optoacoplador + Rele Corte)
+  Soporte Dual: Variante 12V (MOSFET) y Variante 24V (Optoacoplador) usan la misma logica invertida.
 */
 
 #include <Wire.h>
@@ -37,18 +38,17 @@ ESP32Encoder encoder;
 #define BTN_BAK_PIN      26  
 
 // Actuadores
-#define RELAY_PIN    23  // Corte de energia 12V
-#define FAN_PWM_PIN  14  // Senal PWM (A traves de MOSFET Buffer)
+#define RELAY_PIN    23  // Corte de energia Principal
+#define FAN_PWM_PIN  14  // Senal PWM (Buffer Inversor)
 #define PWM_CHANNEL  0
 #define PWM_FREQUENCY 25000
 #define PWM_RESOLUTION 8
-// LOGICA INVERTIDA (MOSFET BUFFER):
-// PWM 255 (100% Duty en ESP) -> MOSFET ON -> Fan Pin a GND (0V) -> 0% Speed
-// PWM 0   (0% Duty en ESP)   -> MOSFET OFF -> Fan Pin Flota (Pullup) -> 100% Speed
-// Definimos rangos invertidos para la funcion ledcWrite
-#define PWM_VAL_STOP 255     // MOSFET ON (Grounds signal) -> Fan Stop
-#define PWM_VAL_MAX  0       // MOSFET OFF (Floats signal) -> Fan Max
-#define PWM_VAL_MIN  200     // ~20% Speed (Ajustar experimentalmente)
+// LOGICA INVERTIDA (Comun para MOSFET y Optoacoplador):
+// PWM 255 (HIGH en ESP) -> Driver Conduce (GND) -> Fan Input LOW -> 0% Speed (Stop)
+// PWM 0   (LOW en ESP)  -> Driver Corta (Float) -> Fan Input HIGH (Pullup) -> 100% Speed (Max)
+#define PWM_VAL_STOP 255
+#define PWM_VAL_MAX  0
+#define PWM_VAL_MIN  200     // ~20% Velocidad efectiva
 
 // --- LEDS DE ESTADO ---
 #define LED_RED_PIN   4     // Error / Standby
@@ -135,7 +135,7 @@ void setup() {
   // Configurar PWM
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOLUTION);
   ledcAttachPin(FAN_PWM_PIN, PWM_CHANNEL);
-  // Inicializar en STOP (Logica Invertida: STOP = 255/HIGH -> MOSFET ON -> Signal LOW)
+  // Inicializar en STOP (Logica Invertida: 255 -> Pin HIGH -> Driver ON -> Signal LOW)
   ledcWrite(PWM_CHANNEL, PWM_VAL_STOP);
 
   // Configurar Encoder
@@ -157,7 +157,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V6.4C...");
+      display.println("V6.5C...");
       display.display();
   }
 
@@ -365,15 +365,12 @@ void controlFan(int percentage) {
   if (percentage <= 0) {
       // Apagado Total: Rele Abierto
       digitalWrite(RELAY_PIN, LOW);
-      // PWM a Estado STOP (Invertido: 255 -> MOSFET ON -> Pin LOW)
+      // PWM a Estado STOP (Invertido: 255 -> Driver ON -> Pin LOW)
       ledcWrite(PWM_CHANNEL, PWM_VAL_STOP);
   } else {
       // Encendido: Rele Cerrado
       digitalWrite(RELAY_PIN, HIGH);
-      // Calculo PWM Invertido: 100% -> PWM_VAL_MAX (0), 1% -> PWM_VAL_MIN (200)
-      // map(value, fromLow, fromHigh, toLow, toHigh)
-      // Entrada: 1 a 100
-      // Salida deseada: PWM_MIN_VALUE (ej 200) a PWM_MAX_VALUE (ej 0)
+      // Calculo PWM Invertido: 100% -> 0, 1% -> 200
       int pwmValue = map(percentage, 1, 100, PWM_VAL_MIN, PWM_VAL_MAX);
       ledcWrite(PWM_CHANNEL, pwmValue);
   }
@@ -417,10 +414,9 @@ void updateDisplay() {
   } else if (currentMode == DEBUG_INFO) {
     display.setTextSize(1);
     display.setCursor(0, 20); display.printf("MQ: %d", airQuality);
-    // Mostrar PWM real (invertido) para debug
     int pwmRaw = map(currentFanSpeed, 1, 100, PWM_VAL_MIN, PWM_VAL_MAX);
     if(currentFanSpeed <= 0) pwmRaw = PWM_VAL_STOP;
-    display.setCursor(0, 30); display.printf("PWM Raw: %d", pwmRaw);
+    display.setCursor(0, 30); display.printf("PWM INV: %d", pwmRaw);
     display.setCursor(0, 40); display.printf("BMP: %s | AHT: %s", bmpReady?"OK":"NO", ahtReady?"OK":"NO");
     display.setCursor(0, 50); display.print("[OK] to Exit");
   }

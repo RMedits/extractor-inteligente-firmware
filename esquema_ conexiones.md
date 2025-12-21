@@ -1,62 +1,87 @@
-# 🔌 Esquema de Conexiones - v6.4C FINAL
-PROYECTO: Extractor Inteligente (Delta 12V 2.70A - Control PWM Protegido)
+# 🔌 Esquema de Conexiones - v6.5C (Variantes 12V/24V)
+PROYECTO: Extractor Inteligente Dual (Soporte Universal 12V/24V)
+
+Este documento detalla las conexiones para dos variantes de hardware:
+*   **Variante A (12V):** Galería (Fan Delta 12V - 2.70A)
+*   **Variante B (24V):** Baño (Fan Delta 24V - 2.40A)
 
 ---
 
-## ⚠️ ADVERTENCIA DE SEGURIDAD
-Este montaje utiliza un ventilador de alta potencia y protege al ESP32 mediante una etapa de buffer.
-**Importante:** Todos los GND (Tierra) del ESP32 y de la fuente de 12V deben estar unidos.
+## ⚠️ ADVERTENCIA CRÍTICA: CÓDIGO DE COLORES DELTA
+Los ventiladores industriales Delta NO siguen el estándar de PC. Verifique SIEMPRE antes de conectar:
+
+| Función | Estándar PC (Noctua, etc) | **DELTA INDUSTRIAL (Su Ventilador)** |
+| :--- | :--- | :--- |
+| **GND (-)** | Negro | **NEGRO** |
+| **VCC (+)** | Amarillo | **ROJO** |
+| **TACH (RPM)** | Verde | **AZUL** (¡PELIGRO! No conectar a PWM) |
+| **PWM (Control)** | Azul | **AMARILLO** (Conectar al Buffer) |
+
+**IMPORTANTE:** Si conecta el cable AZUL al pin PWM, podría dañar el ventilador o el ESP32. **Use el cable AMARILLO para la señal PWM.**
 
 ---
 
-## 1. Conexiones de Lógica y Control (ESP32)
+## 1. Conexiones Lógicas Comunes (ESP32)
 
-| Pin ESP32 | Componente | Función | Notas |
-| :--- | :--- | :--- | :--- |
-| **GPIO 21** | Bus I2C | SDA | OLED SH1106 + AHT20 + BMP280 |
-| **GPIO 22** | Bus I2C | SCL | OLED SH1106 + AHT20 + BMP280 |
-| **GPIO 32** | Encoder | TRA (CLK) | Giro del encoder |
-| **GPIO 33** | Encoder | TRB (DT) | Giro del encoder |
-| **GPIO 27** | Encoder PUSH | OK | Pulsar la rueda |
-| **GPIO 25** | Botón CONFIRM | BACK | Botón físico lateral |
-| **GPIO 26** | Botón BAK | PAUSE | Botón físico lateral (2s) |
-| **GPIO 34** | Sensor MQ135 | AOUT | Analógico (Calidad Aire) |
-| **GPIO 23** | Relé KY-019 | Signal (S) | Corte de Energía (ON/OFF) |
-| **GPIO 14** | MOSFET Gate | PWM Control | Buffer Inversor para PWM |
-| **GPIO 4**  | LED Rojo | Ánodo (+) | Error / Standby |
-| **GPIO 15** | LED Verde | Ánodo (+) | Funcionamiento OK |
+| Pin ESP32 | Componente | Función |
+| :--- | :--- | :--- |
+| **GPIO 21/22** | I2C | OLED, AHT20, BMP280 |
+| **GPIO 32/33/27** | Encoder | A, B, Push |
+| **GPIO 25/26** | Botones | Back, Pause |
+| **GPIO 34** | MQ135 | Analog Out |
+| **GPIO 23** | Relé | Señal Activación (3.3V) |
+| **GPIO 14** | PWM Out | Señal hacia Buffer (MOSFET u Opto) |
 
 ---
 
-## 2. Circuito de Potencia y Protección
+## 2. Variante A: Montaje 12V (Galería)
+*Uso típico:* Ventilador 12V hasta 3A. Tierra común compartida.
 
-Se utiliza una topología Híbrida: Relé para corte de energía y MOSFET (Buffer) para protección de la señal PWM.
+### Componentes de Potencia
+*   **Fuente:** 12V DC (Mínimo 5A).
+*   **Convertidor:** Buck Converter (12V -> 5V) para alimentar ESP32.
+*   **Protección PWM:** MOSFET FQP30N06L o 2N7000.
 
-### A. Etapa de Relé (Corte de Seguridad)
-Controla la alimentación principal del ventilador.
-- **Relé VCC/GND:** A 5V y GND.
-- **Relé Signal:** A GPIO 23.
-- **Relé COM:** A Fuente +12V.
-- **Relé NO (Abierto):** A Cable POSITIVO (Rojo) del Ventilador.
+### Diagrama de Conexión
+1.  **Alimentación:**
+    *   Fuente 12V (+) -> COM Relé.
+    *   Fuente 12V (-) -> GND Común (Unir con GND ESP32).
+    *   NO Relé -> **Cable ROJO** Ventilador.
+    *   GND Común -> **Cable NEGRO** Ventilador.
 
-### B. Etapa de MOSFET (Buffer de Señal PWM)
-Protege el GPIO del ESP32 de los 5V/12V del ventilador. Actúa como interruptor a tierra ("Open Drain").
-- **Componente:** MOSFET FQP30N06L (o 2N7000).
-- **Gate (G):** A GPIO 14 (vía resistencia 1kΩ).
-- **Source (S):** A GND.
-- **Drain (D):** A Cable PWM (Azul/Verde) del Ventilador.
-  * *Nota:* No se requiere resistencia pull-up externa (el ventilador la tiene interna).
-
-### C. Ventilador (Conector 4 Pines)
-- **Cable GND (-):** A GND Común.
-- **Cable 12V (+):** A Salida del Relé.
-- **Cable PWM:** Al Drain del MOSFET.
-- **Cable Tach:** No conectado.
+2.  **Control PWM (Buffer MOSFET):**
+    *   ESP32 GPIO 14 -> Resistencia 1kΩ -> Gate (G) MOSFET.
+    *   Gate (G) -> Resistencia 10kΩ -> GND (Pull-down).
+    *   Source (S) MOSFET -> GND.
+    *   Drain (D) MOSFET -> **Cable AMARILLO** Ventilador.
 
 ---
 
-## 3. Sensores y Periféricos
-- **OLED 1.3" (SH1106):** VCC a 3.3V, I2C a 21/22.
-- **AHT20 + BMP280:** I2C a 21/22.
-- **Encoder EC11:** A 32, 33, 27.
-- **MQ135:** VCC a 5V, AOUT a 34.
+## 3. Variante B: Montaje 24V (Baño)
+*Uso típico:* Ventilador 24V Alta Potencia. **REQUIERE AISLAMIENTO.**
+
+### Componentes de Potencia
+*   **Fuente:** 24V DC (Mínimo 5A).
+*   **Convertidor:** Buck Converter **High Voltage** (24V -> 5V) (ej. LM2596HV).
+*   **Protección PWM:** Optoacoplador PC817 (Aislamiento Total).
+
+### Diagrama de Conexión
+1.  **Alimentación:**
+    *   Fuente 24V (+) -> COM Relé (Bobina 5V).
+    *   Fuente 24V (-) -> **Cable NEGRO** Ventilador.
+    *   NO Relé -> **Cable ROJO** Ventilador.
+
+2.  **Control PWM (Aislamiento Optoacoplador):**
+    *   *Lado ESP32:*
+        *   ESP32 GPIO 14 -> Resistencia 330Ω -> Ánodo (Pin 1) PC817.
+        *   Cátodo (Pin 2) PC817 -> GND ESP32.
+    *   *Lado Ventilador (24V):*
+        *   Emisor (Pin 3) PC817 -> GND Fuente 24V.
+        *   Colector (Pin 4) PC817 -> **Cable AMARILLO** Ventilador.
+
+---
+
+## 4. Configuración de Software
+El firmware v6.5C detecta y usa lógica invertida automáticamente para ambas variantes:
+*   **0% Velocidad:** PWM 255 (ESP32 High -> Buffer Conduce -> Fan Low).
+*   **100% Velocidad:** PWM 0 (ESP32 Low -> Buffer Corta -> Fan High/Pullup).
