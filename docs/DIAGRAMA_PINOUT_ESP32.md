@@ -17,7 +17,7 @@ Referencia para placa de 38 pines sobre Shield de expansión.
 | **G25** | **Confirm** | Botón BACK |
 | **G26** | **BAK** | Botón PAUSA |
 | **G27** | **Encoder PUSH**| Botón OK |
-| **G14** | **Fan PWM** | MOSFET Gate |
+| **G14** | - | - |
 | **G12** | - | - |
 | **G13** | - | - |
 | **GND** | GND | Común |
@@ -34,7 +34,7 @@ Referencia para placa de 38 pines sobre Shield de expansión.
 | **G1** | TX | Debug |
 | **G3** | RX | Debug |
 | **G21** | **I2C SDA** | Bus Sensores/OLED |
-| **G19** | - | - |
+| **G19** | **Fan PWM** | MOSFET Gate (Seguro) |
 | **G18** | - | - |
 | **G5** | - | - |
 | **G17** | - | - |

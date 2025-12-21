@@ -48,7 +48,7 @@ Este módulo centraliza la pantalla y todos los controles de usuario.
 - **- (GND):** GND
 
 ### MOSFET FQP30N06L (Control PWM)
-- **GATE (Pin 1):** Conectado a **GPIO 14** a través de resistencia de 220Ω.
+- **GATE (Pin 1):** Conectado a **GPIO 19** a través de resistencia de 220Ω. *Nota: GPIO 14 descartado por seguridad.*
 - **DRAIN (Pin 2):** Conectado al **NEGATIVO (-)** del Ventilador.
 - **SOURCE (Pin 3):** Conectado a **GND**.
 

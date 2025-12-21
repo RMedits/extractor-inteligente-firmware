@@ -21,7 +21,7 @@ graph TD
 
         %% Conexiones entre zonas
         id1 -- "GPIO 23 (Control Rele)" --> id4
-        id1 -- "GPIO 14 (PWM Fan)" --> id5
+        id1 -- "GPIO 19 (PWM Fan)" --> id5
     end
 
     subgraph "Panel Frontal"

@@ -29,9 +29,45 @@ Hardware Principal:
     - Diodo: 1N5408 (Protección Flyback - Obligatorio).
     - LED Verde: Indicador de funcionamiento correcto (GPIO 15).
     - LED Rojo: Indicador de Standby o Error (GPIO 4).
+🔧 COMPONENTES CONFIRMADOS (MONTAJE FINAL v6.7C)
+
+Hardware Principal:
+- Microcontrolador: ESP32-WROOM-32 (Versión 38 pines, USB Tipo-C, CP2102).
+- Placa de Expansión: Shield de 38 pines con bornes de tornillo/headers (G-V-S).
+- Pantalla: OLED 1.3" (Controlador SH1106 compatible con SSD1306) integrada en módulo con controles.
+- Sensores:
+    - Módulo SimpleRobot: AHT20 (Humedad/Temp) + BMP280 (Temp/Presión) vía I2C.
+    - Módulo MQ135: Calidad de aire (4 pines: AO, DO, GND, VCC). Usamos AO para analógico.
+- Controles (Módulo Estardyn):
+    - Encoder Rotativo (EC11): Giro para navegar.
+    - Botón ENCODER_PUSH: Integrado en el eje (Pulsar rueda) para OK/Confirmar.
+    - Botón CONFIRM: Botón físico lateral para BACK/Cancelar.
+    - Botón BAK: Botón físico lateral para PAUSA (Mantener 2s).
+- Actuadores:
+    - Relé: KY-019 (5V, Lógica Activa Alta).
+    - MOSFET: FQP30N06L (Nivel lógico 3.3V).
+    - Ventilador: Delta QFR1212GHE (12V, 2.70A).
+    - Diodo: 1N5408 (Protección Flyback - Obligatorio).
+    - LED Verde: Indicador de funcionamiento correcto (GPIO 15).
+    - LED Rojo: Indicador de Standby o Error (GPIO 4).
 - Alimentación:
+    - Fuente 12V 4A (Para ventilador).
+    - Alimentación ESP32 vía USB o pin 5V (GND común).
 
 📌 PINOUT DEFINITIVO (ESP32)
+
+- GPIO 21: I2C SDA (OLED + BME280)
+- GPIO 22: I2C SCL (OLED + BME280)
+- GPIO 32: Encoder TRA (Phase A / CLK)
+- GPIO 33: Encoder TRB (Phase B / DT)
+- GPIO 27: ENCODER_PUSH (OK / Confirmar)
+- GPIO 25: Botón CONFIRM (BACK / Cancelar)
+- GPIO 26: Botón BAK (PAUSA / Mantener 2s)
+- GPIO 34: MQ135 Entrada Analógica
+- GPIO 23: Señal Relé KY-019 (S)
+- GPIO 19: PWM Ventilador (Gate del MOSFET) - **CAMBIO CRÍTICO: GPIO 14 DESCARTADO POR SEGURIDAD**
+- GPIO 4: LED Rojo (Error / Standby)
+- GPIO 15: LED Verde (Funcionamiento OK)
 
 - GPIO 21: I2C SDA (OLED + BME280)
 - GPIO 22: I2C SCL (OLED + BME280)
