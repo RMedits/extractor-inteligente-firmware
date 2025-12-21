@@ -51,6 +51,13 @@ enum Mode { AUTOMATICO, SELECCION_TIEMPO, SELECCION_VELOCIDAD, MANUAL_ACTIVO, PA
 Mode currentMode = AUTOMATICO;
 Mode previousMode = AUTOMATICO;
 
+// Timers for optimization
+unsigned long lastSensorReadTime = 0;
+const unsigned long sensorReadInterval = 2000; // Read sensors every 2s
+
+unsigned long lastDisplayUpdateTime = 0;
+const unsigned long displayUpdateInterval = 200; // Update display at 5Hz
+
 float temperature = 0.0;
 float humidity = 0.0;
 int airQuality = 0;
@@ -173,12 +180,25 @@ void setup() {
 
 void loop() {
   handleControls();
-  readSensors();
+
+  unsigned long now = millis();
+
+  // Optimization: Read sensors only every 2 seconds
+  if (now - lastSensorReadTime > sensorReadInterval) {
+    lastSensorReadTime = now;
+    readSensors();
+  }
+
   runLogic();
   updateLeds(); // Nueva logica de LEDs
   
-  if (oledWorking) updateDisplay();
-  else {
+  if (oledWorking) {
+    // Optimization: Update display only every 200ms (5Hz)
+    if (now - lastDisplayUpdateTime > displayUpdateInterval) {
+      lastDisplayUpdateTime = now;
+      updateDisplay();
+    }
+  } else {
       // Si OLED falla, parpadear Rojo lento como heartbeat
       if (millis() % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
   }
