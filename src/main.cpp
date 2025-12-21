@@ -51,12 +51,12 @@ enum Mode { AUTOMATICO, SELECCION_TIEMPO, SELECCION_VELOCIDAD, MANUAL_ACTIVO, PA
 Mode currentMode = AUTOMATICO;
 Mode previousMode = AUTOMATICO;
 
-// Timers for optimization
+// Temporizadores para optimización
 unsigned long lastSensorReadTime = 0;
-const unsigned long sensorReadInterval = 2000; // Read sensors every 2s
+const unsigned long sensorReadInterval = 2000; // Leer sensores cada 2s
 
 unsigned long lastDisplayUpdateTime = 0;
-const unsigned long displayUpdateInterval = 200; // Update display at 5Hz
+const unsigned long displayUpdateInterval = 200; // Actualizar pantalla a 5Hz
 
 float temperature = 0.0;
 float humidity = 0.0;
@@ -175,6 +175,9 @@ void setup() {
         }
         delay(1000);
       }
+      // Forzar primera lectura tras el warm-up
+      readSensors();
+      lastSensorReadTime = millis();
   }
 }
 
@@ -183,7 +186,7 @@ void loop() {
 
   unsigned long now = millis();
 
-  // Optimization: Read sensors only every 2 seconds
+  // Optimización: Leer sensores solo cada 2 segundos
   if (now - lastSensorReadTime > sensorReadInterval) {
     lastSensorReadTime = now;
     readSensors();
@@ -193,7 +196,7 @@ void loop() {
   updateLeds(); // Nueva logica de LEDs
   
   if (oledWorking) {
-    // Optimization: Update display only every 200ms (5Hz)
+    // Optimización: Actualizar pantalla solo cada 200ms (5Hz)
     if (now - lastDisplayUpdateTime > displayUpdateInterval) {
       lastDisplayUpdateTime = now;
       updateDisplay();
