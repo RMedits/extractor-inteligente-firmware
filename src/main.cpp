@@ -1,6 +1,6 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.0C FINAL
-  Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones
+  Extractor Inteligente para Bano/Galeria v6.2C
+  Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones + LEDs Estado
 */
 
 #include <Wire.h>
@@ -36,6 +36,10 @@ ESP32Encoder encoder;
 #define PWM_MIN_VALUE 51   
 #define PWM_MAX_VALUE 255  
 
+// --- LEDS DE ESTADO ---
+#define LED_RED_PIN   4     // Error / Standby
+#define LED_GREEN_PIN 15    // Funcionamiento OK
+
 // --- UMBRALES ---
 #define HUMIDITY_THRESHOLD_HIGH 70.0f
 #define HUMIDITY_THRESHOLD_LOW  65.0f
@@ -43,13 +47,15 @@ ESP32Encoder encoder;
 #define AIR_QUALITY_THRESHOLD   600
 
 // --- ESTADOS Y VARIABLES ---
-enum Mode { AUTOMATICO, SELECCION_TIEMPO, SELECCION_VELOCIDAD, MANUAL_ACTIVO, PAUSA };
+enum Mode { AUTOMATICO, SELECCION_TIEMPO, SELECCION_VELOCIDAD, MANUAL_ACTIVO, PAUSA, DEBUG_INFO, SENSORS_FAIL };
 Mode currentMode = AUTOMATICO;
 Mode previousMode = AUTOMATICO;
 
 float temperature = 0.0;
 float humidity = 0.0;
 int airQuality = 0;
+bool sensorsReady = false;
+bool oledWorking = true;
 
 const long manualDurations[] = { 30 * 60000, 60 * 60000, 90 * 60000 };
 const char* manualDurationLabels[] = {"30 MIN", "60 MIN", "90 MIN"};
@@ -66,6 +72,7 @@ int manualFanSpeed = 0;
 int pausedFanSpeed = 0;
 long oldEncoderPosition = 0;
 
+// Debounce Variables
 bool btnOkPressed = false;          
 bool btnBackPressed = false;        
 bool btnPausePressed = false;       
@@ -86,12 +93,21 @@ void readSensors();
 void runLogic();
 void controlFan(int percentage);
 void updateDisplay();
+void updateLeds();
 
 void setup() {
   Serial.begin(115200);
   
+  // Configurar Pines
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
+  
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  // Test inicial LEDs
+  digitalWrite(LED_RED_PIN, HIGH); delay(300); digitalWrite(LED_RED_PIN, LOW);
+  digitalWrite(LED_GREEN_PIN, HIGH); delay(300); digitalWrite(LED_GREEN_PIN, LOW);
+  
   pinMode(ENCODER_PUSH_PIN, INPUT_PULLUP);
   pinMode(BTN_CONFIRM_PIN, INPUT_PULLUP);
   pinMode(BTN_BAK_PIN, INPUT_PULLUP);
@@ -104,38 +120,54 @@ void setup() {
   encoder.attachHalfQuad(ENCODER_TRA_PIN, ENCODER_TRB_PIN);
   encoder.setCount(0);
   
+  // Iniciar OLED
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("OLED Fail");
-    while(true);
+    Serial.println("OLED Fail - Blind Mode");
+    oledWorking = false;
+    for(int i=0; i<3; i++) { digitalWrite(LED_RED_PIN, HIGH); delay(100); digitalWrite(LED_RED_PIN, LOW); delay(100); }
   }
   
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10, 10);
-  display.println("EXTRACTOR");
-  display.setCursor(10, 35);
-  display.println("V6.0C OK");
-  display.display();
+  if (oledWorking) {
+      display.clearDisplay();
+      display.setTextSize(2);
+      display.setTextColor(SSD1306_WHITE);
+      display.setCursor(10, 10);
+      display.println("INICIANDO");
+      display.setCursor(10, 35);
+      display.println("V6.2C...");
+      display.display();
+  }
 
+  // Iniciar Sensores
   bool bmpStatus = bmp.begin(0x76);
-  if (!bmpStatus) bmpStatus = bmp.begin(0x77);
-  
+  if (!bmpStatus) bmpStatus = bmp.begin(0x77); // Probar ambas direcciones
   bool ahtStatus = aht.begin();
   
-  if (!bmpStatus || !ahtStatus) {
-     Serial.println("Sensor Error");
+  if (bmpStatus && ahtStatus) {
+     sensorsReady = true;
+     Serial.println("Sensores OK");
+  } else {
+     sensorsReady = false;
+     Serial.println("FALLO CRITICO SENSORES");
+     currentMode = SENSORS_FAIL;
   }
   
-  delay(2000);
-  // Warm-up MQ135
-  for(int i = 10; i > 0; i--) {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(20, 20);
-    display.printf("Calibrando: %ds", i);
-    display.display();
-    delay(1000);
+  delay(1500);
+  
+  // Warm-up solo si los sensores estan OK
+  if (sensorsReady) {
+      for(int i = 5; i > 0; i--) {
+        if (oledWorking) {
+            display.clearDisplay();
+            display.setTextSize(1);
+            display.setCursor(10, 20);
+            display.println("Calibrando Aire...");
+            display.setCursor(50, 40);
+            display.printf("%ds", i);
+            display.display();
+        }
+        delay(1000);
+      }
   }
 }
 
@@ -143,11 +175,40 @@ void loop() {
   handleControls();
   readSensors();
   runLogic();
-  updateDisplay();
+  updateLeds(); // Nueva logica de LEDs
+  
+  if (oledWorking) updateDisplay();
+  else {
+      // Si OLED falla, parpadear Rojo lento como heartbeat
+      if (millis() % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
+  }
   delay(50);
 }
 
+void updateLeds() {
+    // Logica solicitada:
+    // Verde ON: Ventilador ON Y Sensores OK
+    // Rojo ON: (Ventilador OFF Y Sensores OK) O (Sensores Fallo)
+    
+    bool fanIsOn = (currentFanSpeed > 0);
+    
+    if (sensorsReady) {
+        if (fanIsOn) {
+            digitalWrite(LED_GREEN_PIN, HIGH);
+            digitalWrite(LED_RED_PIN, LOW);
+        } else {
+            digitalWrite(LED_GREEN_PIN, LOW);
+            digitalWrite(LED_RED_PIN, HIGH); // Standby
+        }
+    } else {
+        // Fallo de sensores
+        digitalWrite(LED_GREEN_PIN, LOW);
+        digitalWrite(LED_RED_PIN, HIGH); // Alerta Fallo
+    }
+}
+
 void handleControls() {
+  // Debounce implementado por tiempo
   if (digitalRead(ENCODER_PUSH_PIN) == LOW && (millis() - lastOkPressTime > debounceDelay)) {
     lastOkPressTime = millis();
     btnOkPressed = true;
@@ -156,6 +217,8 @@ void handleControls() {
     lastBackPressTime = millis();
     btnBackPressed = true;
   }
+  
+  // Logica boton BAK (Pausa)
   bool bakPressed = (digitalRead(BTN_BAK_PIN) == LOW);
   if (bakPressed) {
     if (pausePressStartTime == 0) {
@@ -170,6 +233,7 @@ void handleControls() {
     pauseLongPressDetected = false;
   }
 
+  // Encoder
   if (currentMode == SELECCION_TIEMPO || currentMode == SELECCION_VELOCIDAD) {
     long newPos = encoder.getCount() / 2;
     if (newPos != oldEncoderPosition) {
@@ -184,15 +248,24 @@ void handleControls() {
       }
       oldEncoderPosition = newPos;
     }
+  } else if (currentMode == AUTOMATICO) {
+      long newPos = encoder.getCount() / 2;
+      if (abs(newPos - oldEncoderPosition) > 0) {
+          currentMode = DEBUG_INFO;
+          oldEncoderPosition = newPos;
+      }
   }
 }
 
 void readSensors() {
+  if (!sensorsReady) return; // No leer si fallaron al inicio
+
   float t_bmp = bmp.readTemperature();
   sensors_event_t hum, temp;
   aht.getEvent(&hum, &temp);
   float t_aht = temp.temperature;
   
+  // Promedio robusto
   if (!isnan(t_bmp) && !isnan(t_aht)) temperature = (t_bmp + t_aht) / 2.0;
   else if (!isnan(t_bmp)) temperature = t_bmp;
   else temperature = t_aht;
@@ -202,6 +275,12 @@ void readSensors() {
 }
 
 void runLogic() {
+  // Si sensores fallan, bloquear logica normal
+  if (currentMode == SENSORS_FAIL) {
+      controlFan(0);
+      return; 
+  }
+
   if (btnPausePressed) {
     btnPausePressed = false;
     isPaused = !isPaused;
@@ -227,6 +306,7 @@ void runLogic() {
   if (btnOkPressed) {
     btnOkPressed = false;
     if (currentMode == AUTOMATICO) { currentMode = SELECCION_TIEMPO; selectedDuration = 0; encoder.setCount(0); oldEncoderPosition = 0; controlFan(0); }
+    else if (currentMode == DEBUG_INFO) { currentMode = AUTOMATICO; }
     else if (currentMode == SELECCION_TIEMPO) { currentMode = SELECCION_VELOCIDAD; selectedSpeed = 1; encoder.setCount(2); oldEncoderPosition = 1; }
     else if (currentMode == SELECCION_VELOCIDAD) { currentMode = MANUAL_ACTIVO; manualTimerStartTime = millis(); manualTimeLeft = manualDurations[selectedDuration]; manualFanSpeed = speedOptions[selectedSpeed]; controlFan(manualFanSpeed); }
     else if (currentMode == MANUAL_ACTIVO) { currentMode = AUTOMATICO; controlFan(0); }
@@ -235,11 +315,12 @@ void runLogic() {
   if (btnBackPressed) {
     btnBackPressed = false;
     if (currentMode == SELECCION_TIEMPO) currentMode = AUTOMATICO;
+    else if (currentMode == DEBUG_INFO) currentMode = AUTOMATICO;
     else if (currentMode == SELECCION_VELOCIDAD) { currentMode = SELECCION_TIEMPO; encoder.setCount(selectedDuration * 2); oldEncoderPosition = selectedDuration; }
     else if (currentMode == MANUAL_ACTIVO) { currentMode = AUTOMATICO; controlFan(0); }
   }
 
-  if (currentMode == AUTOMATICO) {
+  if (currentMode == AUTOMATICO || currentMode == DEBUG_INFO) {
     int speed = 0;
     if (humidity >= HUMIDITY_THRESHOLD_HIGH) speed = 100;
     else if (humidity >= HUMIDITY_THRESHOLD_LOW) speed = 70;
@@ -262,6 +343,18 @@ void controlFan(int percentage) {
 void updateDisplay() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
+  
+  // Pantalla de ERROR CRITICO
+  if (currentMode == SENSORS_FAIL) {
+      display.setTextSize(2); 
+      display.setCursor(10, 10); display.println("! ERROR !");
+      display.setTextSize(1); 
+      display.setCursor(5, 35); display.println("Fallo Sensores");
+      display.setCursor(5, 45); display.println("Revise cables I2C");
+      display.display();
+      return;
+  }
+
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.printf("T:%dC H:%d%% A:%d", (int)temperature, (int)humidity, airQuality);
@@ -284,6 +377,12 @@ void updateDisplay() {
     int s = manualTimeLeft/1000; display.printf("V:%d%% T:%02d:%02d", manualFanSpeed, s/60, s%60);
   } else if (currentMode == PAUSA) {
     display.setTextSize(2); display.setCursor(30, 25); display.println("PAUSA");
+  } else if (currentMode == DEBUG_INFO) {
+    display.setTextSize(1);
+    display.setCursor(0, 20); display.printf("MQ135 RAW: %d", airQuality);
+    display.setCursor(0, 30); float volt = (airQuality / 4095.0) * 3.3; display.printf("V Aprox: %.2fV", volt);
+    display.setCursor(0, 40); display.printf("PWM: %d", map(currentFanSpeed, 1, 100, PWM_MIN_VALUE, PWM_MAX_VALUE));
+    display.setCursor(0, 50); display.print("[OK] to Exit");
   }
   display.display();
 }

@@ -52,12 +52,16 @@ Este módulo centraliza la pantalla y todos los controles de usuario.
 - **DRAIN (Pin 2):** Conectado al **NEGATIVO (-)** del Ventilador.
 - **SOURCE (Pin 3):** Conectado a **GND**.
 
+### LEDs de Estado Externos (Opcionales)
+- **LED Rojo (Standby/Error):** Ánodo a **GPIO 4** (vía 220Ω), Cátodo a GND.
+- **LED Verde (Funcionamiento):** Ánodo a **GPIO 15** (vía 220Ω), Cátodo a GND.
+
 ---
 
 ## 4. Componentes de Protección y Estabilidad
 - **Diodo 1N5408:** En paralelo con el ventilador (Cátodo a 12V+, Ánodo a Ventilador-).
 - **Resistencia 10kΩ:** Entre GATE del MOSFET y GND (Pulldown obligatorio).
-- **Resistencia 220Ω:** Entre GPIO 14 y GATE del MOSFET.
+- **Resistencia 220Ω:** Para el GATE del MOSFET y para el LED de estado.
 
 ---
 

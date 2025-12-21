@@ -39,13 +39,11 @@ Referencia para placa de 38 pines sobre Shield de expansión.
 | **G5** | - | - |
 | **G17** | - | - |
 | **G16** | - | - |
-| **G4** | - | - |
+| **G4** | **LED ROJO** | Error / Standby |
 | **G0** | - | - |
 | **G2** | - | - |
-| **G15** | - | - |
+| **G15** | **LED VERDE**| Funcionamiento OK |
 | **G8** | - | - |
-| **G7** | - | - |
-| **G6** | - | - |
 
 ---
 

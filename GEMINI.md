@@ -27,9 +27,9 @@ Hardware Principal:
     - MOSFET: FQP30N06L (Nivel lógico 3.3V).
     - Ventilador: Delta QFR1212GHE (12V, 2.70A).
     - Diodo: 1N5408 (Protección Flyback - Obligatorio).
+    - LED Verde: Indicador de funcionamiento correcto (GPIO 15).
+    - LED Rojo: Indicador de Standby o Error (GPIO 4).
 - Alimentación:
-    - Fuente 12V 4A (Para ventilador).
-    - Alimentación ESP32 vía USB o pin 5V (GND común).
 
 📌 PINOUT DEFINITIVO (ESP32)
 
@@ -43,12 +43,19 @@ Hardware Principal:
 - GPIO 34: MQ135 Entrada Analógica
 - GPIO 23: Señal Relé KY-019 (S)
 - GPIO 14: PWM Ventilador (Gate del MOSFET)
+- GPIO 4: LED Rojo (Error / Standby)
+- GPIO 15: LED Verde (Funcionamiento OK)
 
 🎯 FUNCIONALIDAD REQUERIDA
 
 MODO AUTOMÁTICO (Default)
 - Monitoreo de sensores: Humedad (>=70% -> 100%, >=65% -> 70%), Temp (>=30C -> 60%), Aire (>=600 -> 40%).
 - Velocidad PWM optimizada: 20% (51) a 100% (255) para Delta 12V.
+
+INDICADORES DE ESTADO (LEDs)
+- Verde ON: Ventilador encendido y sensores OK.
+- Rojo ON: Ventilador apagado (Standby) O Fallo crítico de sensores.
+- Rojo Parpadeando: Fallo de pantalla OLED.
 
 MODO MANUAL
 1. Pulsar Encoder -> Selección Tiempo (30/60/90 min).

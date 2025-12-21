@@ -22,6 +22,8 @@ Este montaje utiliza un ventilador de alta potencia. Es **OBLIGATORIO** el uso d
 | **GPIO 34** | Sensor MQ135 | AOUT | Analógico (Calidad Aire) |
 | **GPIO 23** | Relé KY-019 | Signal (S) | Corte general seguridad |
 | **GPIO 14** | MOSFET Gate | PWM | Control velocidad |
+| **GPIO 4**  | LED Rojo | Ánodo (+) | Error / Standby |
+| **GPIO 15** | LED Verde | Ánodo (+) | Funcionamiento OK |
 
 ---
 

@@ -29,6 +29,12 @@ PROYECTO: Extractor Inteligente (Delta 12V 2.7A)
    MQ135 AO/AD            <----------->  GPIO 34 (Analog In)
    MQ135 DO               <----------->  NC (No conectado)
 
+   [ LEDS ESTADO ]
+   -------------
+   ROJO (+)      --[220R]-- GPIO 4  (Standby/Error)
+   VERDE (+)     --[220R]-- GPIO 15 (Funcionando)
+   GND           ---------- GND Comun
+
 ================================================================================
 2. CIRCUITO DE POTENCIA (Ventilador Delta 12V)
 ================================================================================
