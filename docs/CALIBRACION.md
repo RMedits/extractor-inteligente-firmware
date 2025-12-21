@@ -40,7 +40,7 @@ El sensor MQ135 mide la concentración de varios gases (humo, alcohol, CO2, etc.
 
 ---
 
-## 2. Ajuste de Umbrales de Humedad (BME280)
+## 2. Ajuste de Umbrales de Humedad (AHT20/BMP280)
 
 Los umbrales de humedad (`HUMIDITY_THRESHOLD_HIGH` y `HUMIDITY_THRESHOLD_LOW`) dependen de tu clima local y del lugar de instalación.
 
