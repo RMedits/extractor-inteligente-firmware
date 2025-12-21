@@ -1,4 +1,4 @@
-# 🔌 Diagrama de Conexiones - v6.8C FINAL
+# 🔌 Diagrama de Conexiones - v7.1C FINAL
 PROYECTO: Extractor Inteligente (Delta 12V 2.70A)
 
 ---

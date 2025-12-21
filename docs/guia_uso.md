@@ -1,6 +1,6 @@
-# 📖 Guía de Uso - Extractor Inteligente v6.0C
+# 📖 Guía de Uso - Extractor Inteligente v7.1C
 
-Tu sistema de extracción de aire tiene dos modos principales de funcionamiento y una función de seguridad.
+Tu sistema de extracción de aire tiene dos modos principales de funcionamiento, función de seguridad y diagnóstico.
 
 ---
 
@@ -32,13 +32,20 @@ Si necesitas detener el ventilador instantáneamente sin apagar el ESP32.
 
 ---
 
-## 4. Controles y Botones
-- **Girar Rueda**: Navegar por las listas de los menús.
-- **Pulsar Rueda (OK)**: Confirmar la selección y avanzar al siguiente paso.
-- **Botón CONFIRM (BACK)**: Volver atrás en el menú o cancelar el temporizador manual para volver al modo automático.
-- **Botón BAK (PAUSE)**: Pausa de emergencia (Pulsación larga 2s).
+## 4. Indicadores LED de Estado
+El sistema se comunica visualmente a través de dos LEDs:
+
+- **🟢 LED Verde**: Encendido cuando el ventilador está funcionando y los sensores operan correctamente.
+- **🔴 LED Rojo (Fijo)**: El sistema está en **Standby** (ventilador apagado) o hay un error crítico.
+- **🔴 LED Rojo (Parpadeando)**: Fallo de pantalla OLED (Modo Ciego). El sistema sigue funcionando automáticamente.
 
 ---
 
-## 5. Recomendaciones de Calibración
+## 5. Diagnóstico de Sensores
+Si los sensores fallan al arrancar, la pantalla mostrará **"! ERROR !"**.
+El sistema indicará qué sensor específico ha fallado (BME280, AHT20 o ambos) para facilitar la reparación.
+
+---
+
+## 6. Recomendaciones de Calibración
 El sensor **MQ135** (aire) realiza una limpieza de 30 segundos cada vez que el sistema arranca. Para lecturas más precisas de aire, el sistema debe llevar encendido al menos 24 horas.

@@ -1,4 +1,4 @@
-# 🔌 Esquema de Conexiones - v6.0C FINAL
+# 🔌 Esquema de Conexiones - v7.1C FINAL
 PROYECTO: Extractor Inteligente (Delta 12V 2.70A)
 
 ---

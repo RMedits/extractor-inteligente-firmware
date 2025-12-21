@@ -1,4 +1,4 @@
-# 📍 Pinout ESP32 38-PIN (Tipo-C) - v6.8C FINAL
+# 📍 Pinout ESP32 38-PIN (Tipo-C) - v7.1C FINAL
 Referencia para placa de 38 pines sobre Shield de expansión.
 
 ---

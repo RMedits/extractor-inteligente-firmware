@@ -1,4 +1,4 @@
-# ESQUEMA ELECTRICO ASCII - v6.0C FINAL
+# ESQUEMA ELECTRICO ASCII - v7.1C FINAL
 PROYECTO: Extractor Inteligente (Delta 12V 2.7A)
 
 ================================================================================
@@ -47,7 +47,7 @@ PROYECTO: Extractor Inteligente (Delta 12V 2.7A)
 
    [ ESP32 ]          [ MOSFET FQP30N06L ]
    ---------          --------------------
-   GPIO 14  --[220R]-- Gate (Pin 1)
+   GPIO 19  --[220R]-- Gate (Pin 1)
                         |
                       [10K] (Resistencia Pulldown)
                         |
