@@ -1,43 +1,68 @@
-# Esquema de Conexiones (Arte ASCII) - v6.0
+# ESQUEMA ELECTRICO ASCII - v6.0C FINAL
+PROYECTO: Extractor Inteligente (Delta 12V 2.7A)
 
-Este esquema refleja el cableado para el firmware v6.0 con la lógica de botones optimizada.
-**¡Atención al cambio del relé al GPIO 23!**
+================================================================================
+1. CONEXIONES DE CONTROL (ESP32 Placa Expansion)
+================================================================================
 
-```text
-                               +--------------------------------+
-                               |          ESP32 DevKit          |
-                               |                                |
-      (BME280 SDA)----[SDA]---| GPIO 21 ---[oled_sda]------------\
-      (BME280 SCL)----[SCL]---| GPIO 22 ---[oled_scl]-------------\
-                               |                                 |
-                               | GPIO 27 ---[encoder_push -> OK]--|
-                               | GPIO 25 ---[confirm -> Back]-----| Módulo
-                               | GPIO 26 ---[bak -> Pausa]--------| Integrado
-                               | GPIO 32 ---[encoder_tra]---------|
-                               | GPIO 33 ---[encoder_trb]---------|
-                               |                                 |
-      (MQ135 AOUT)---[ANALOG]-| GPIO 34                          |
-                               |                                |
- (Relé IN)--------[CONTROL]--| GPIO 23  <-- ¡NUEVO PIN!          |
- (MOSFET Gate)-------[PWM]----| GPIO 14                          |
-                               |                                |
-                               | 3.3V ----- [3v3-5v]--------------/
-                               | GND ------ [gnd]----------------/
-                               |                                |
-                               | 5V ------> (Alimentación Relé, MQ135)
-                               | GND ------> (GND Común para TODO)
-                               +--------------------------------+
+   [ MODULO OLED + ENCODER ]             [ ESP32 WROOM 32 ]
+   -----------------------               ------------------
+   VCC (3.3V-5V)          <----------->  3.3V
+   GND                    <----------->  GND
+   OLED_SCL               <----------->  GPIO 22 (SCL)
+   OLED_SDA               <----------->  GPIO 21 (SDA)
+   ENCODER_TRA (CLK)      <----------->  GPIO 32
+   ENCODER_TRB (DT)       <----------->  GPIO 33
+   ENCODER_PUSH (OK)      <----------->  GPIO 27
+   CONFIRM (BACK)         <----------->  GPIO 25
+   BAK (PAUSE)            <----------->  GPIO 26
 
+   [ SENSORES ]
+   ------------
+   AHT20+BMP280 VCC (3.3V) <----------->  3.3V
+   AHT20+BMP280 GND       <----------->  GND
+   AHT20+BMP280 SCL       <----------->  GPIO 22 (I2C compartido)
+   AHT20+BMP280 SDA       <----------->  GPIO 21 (I2C compartido)
 
-    Circuito de Potencia 12V:
-    -------------------------
+   MQ135 VCC (5V)         <----------->  5V (Vin)
+   MQ135 GND              <----------->  GND
+   MQ135 AO/AD            <----------->  GPIO 34 (Analog In)
+   MQ135 DO               <----------->  NC (No conectado)
 
-    (+) ---->[Fuente 12V]----> (COM) [RELÉ] (NO) ----> (+) [VENTILADOR] (-) ----> (Drain) [MOSFET] (Source) ----> (-) [GND Común]
-                                                                                             |
-                                                                                           (Gate)
-                                                                                             ^
-                                                                                             |
-                                                                                         (GPIO 14)
+================================================================================
+2. CIRCUITO DE POTENCIA (Ventilador Delta 12V)
+================================================================================
 
-    IMPORTANTE: No olvides el diodo Flyback en paralelo con el ventilador.
-```
+   [ ESP32 ]          [ RELE KY-019 ]
+   ---------          ---------------
+   GPIO 23  --------> S (Signal)
+   5V       --------> + (VCC)
+   GND      --------> - (GND)
+
+   [ ESP32 ]          [ MOSFET FQP30N06L ]
+   ---------          --------------------
+   GPIO 14  --[220R]-- Gate (Pin 1)
+                        |
+                      [10K] (Resistencia Pulldown)
+                        |
+                       GND
+
+   [ ESQUEMA DE CARGA (12V) ]
+   --------------------------
+   FUENTE 12V (+) ------> RELE COM
+                          RELE NO ------> VENTILADOR (+)
+                                          VENTILADOR (-) --+--> MOSFET DRAIN (Pin 2)
+                                                           |
+                                                   [DIODO 1N5408] (Flyback)
+                                                           |
+   FUENTE 12V (-) -----------------------------------------+--> MOSFET SOURCE (Pin 3)
+                                                                |
+                                                               GND (Comun)
+
+================================================================================
+3. NOTAS DE MONTAJE CRITICAS
+================================================================================
+- DIODO 1N5408: Instalar en paralelo al ventilador. La franja (catodo) va al positivo.
+- MOSFET: El pinout del FQP30N06L visto de frente es 1:Gate, 2:Drain, 3:Source.
+- RESISTENCIAS: La de 10K debe ir lo mas cerca posible del Gate del MOSFET.
+- GND: El GND de la fuente de 12V debe estar unido al GND del ESP32.

@@ -1,59 +1,65 @@
-# Diagrama de Conexiones (Mermaid) - v6.0
+# 🔌 Diagrama de Conexiones - v6.0C FINAL
+Este documento detalla el cableado exacto para el proyecto del Extractor Inteligente.
 
-Este diagrama muestra las conexiones lógicas para el firmware v6.0, con la nueva asignación de pines y lógica de botones.
+---
 
-```mermaid
-graph LR
-    subgraph perifericos["Periféricos Externos"]
-        BME280((Sensor BME280))
-        MQ135((Sensor MQ135))
-    end
+## 1. Módulo OLED 1.3" + Encoder Estardyn (3 Botones)
+Este módulo centraliza la pantalla y todos los controles de usuario.
 
-    subgraph modulo["Módulo Integrado (OLED + Controles)"]
-        direction LR
-        PinSDA(oled_sda)
-        PinSCL(oled_scl)
-        PinTRA(encoder_tra)
-        PinTRB(encoder_trb)
-        PinPush(encoder_push)
-        PinConfirm(confirm)
-        PinBak(bak)
-        Pin3V(3v3-5v)
-        PinGND(gnd)
-    end
+| Pin Módulo | Función | Pin ESP32 | Notas |
+| :--- | :--- | :--- | :--- |
+| **VCC** | Alimentación | 3.3V | Puede alimentarse a 5V pero se recomienda 3.3V |
+| **GND** | Tierra | GND | Común con el sistema |
+| **OLED_SCL** | Reloj I2C | GPIO 22 | Compartido con BME280 |
+| **OLED_SDA** | Datos I2C | GPIO 21 | Compartido con BME280 |
+| **ENCODER_TRA** | Phase A (CLK) | GPIO 32 | Lectura de giro |
+| **ENCODER_TRB** | Phase B (DT) | GPIO 33 | Lectura de giro |
+| **ENCODER_PUSH**| Botón OK | GPIO 27 | **Pulsar rueda del encoder** |
+| **CONFIRM** | Botón BACK | GPIO 25 | Botón físico lateral |
+| **BAK** | Botón PAUSA | GPIO 26 | Botón físico lateral (Mantener 2s) |
 
-    subgraph potencia["Circuito de Potencia 12V"]
-        Power12V(Fuente 12V) --> Relay{Relé};
-        Relay -- COM/NO --> Fan(Ventilador DC);
-        Fan --> MOSFET{MOSFET};
-        MOSFET -- Source --> GND;
-        Power12V -- "GND Común" --> GND;
-    end
+---
 
-    ESP32[ESP32 DevKit]
+## 2. Sensores (AHT20+BMP280 y MQ135)
 
-    %% Conexiones al Módulo Integrado
-    ESP32 -- "GPIO 21 (SDA)" --> PinSDA;
-    ESP32 -- "GPIO 22 (SCL)" --> PinSCL;
-    ESP32 -- "GPIO 32 (Encoder A)" --> PinTRA;
-    ESP32 -- "GPIO 33 (Encoder B)" --> PinTRB;
-    ESP32 -- "GPIO 27 (OK/Enter)" --> PinPush;
-    ESP32 -- "GPIO 25 (Back/Cancel)" --> PinConfirm;
-    ESP32 -- "GPIO 26 (Pause)" --> PinBak;
-    ESP32 -- "3.3V" --> Pin3V;
-    ESP32 -- "GND" --> PinGND;
+### Módulo Dual AHT20 + BMP280 (Humedad/Temp/Presión)
+| Pin Módulo | Función | Pin ESP32 | Notas |
+| :--- | :--- | :--- | :--- |
+| **VDD / VCC**| Alimentación | 3.3V | |
+| **GND** | Tierra | GND | |
+| **SCL** | Reloj I2C | GPIO 22 | Compartido con OLED |
+| **SDA** | Datos I2C | GPIO 21 | Compartido con OLED |
 
-    %% Conexiones a otros periféricos
-    ESP32 -- "GPIO 21 (SDA)" --> BME280;
-    ESP32 -- "GPIO 22 (SCL)" --> BME280;
-    ESP32 -- "GPIO 34 (Analógico)" --> MQ135;
-    
-    %% Conexiones al circuito de potencia
-    ESP32 -- "GPIO 23 (Control Relé)" --> Relay;
-    ESP32 -- "GPIO 14 (PWM)" --> MOSFET;
+### Módulo MQ135 (Calidad de Aire)
+| Pin Módulo | Función | Pin ESP32 | Notas |
+| :--- | :--- | :--- | :--- |
+| **VCC** | Alimentación | 5V (Vin) | Necesita 5V para el calefactor |
+| **GND** | Tierra | GND | |
+| **AO / AD** | Salida Analóg.| GPIO 34 | Valor 0-4095 |
+| **DO** | Salida Digital| NC | No utilizado |
 
-    style ESP32 fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
-    style perifericos fill:#2196F3,color:#fff
-    style modulo fill:#FF9800,color:#fff
-    style potencia fill:#F4433G,color:#fff
-```
+---
+
+## 3. Control de Potencia (Ventilador Delta 12V)
+
+### Relé KY-019 (Seguridad/Corte General)
+- **S (Señal):** GPIO 23
+- **+ (VCC):** 5V
+- **- (GND):** GND
+
+### MOSFET FQP30N06L (Control PWM)
+- **GATE (Pin 1):** Conectado a **GPIO 14** a través de resistencia de 220Ω.
+- **DRAIN (Pin 2):** Conectado al **NEGATIVO (-)** del Ventilador.
+- **SOURCE (Pin 3):** Conectado a **GND**.
+
+---
+
+## 4. Componentes de Protección y Estabilidad
+- **Diodo 1N5408:** En paralelo con el ventilador (Cátodo a 12V+, Ánodo a Ventilador-).
+- **Resistencia 10kΩ:** Entre GATE del MOSFET y GND (Pulldown obligatorio).
+- **Resistencia 220Ω:** Entre GPIO 14 y GATE del MOSFET.
+
+---
+
+## ⚠️ Advertencia de Alimentación
+Asegúrate de unir todos los **GND** (Tierra) de las diferentes fuentes (12V del ventilador y 5V/USB del ESP32) para que el control PWM funcione correctamente.

@@ -1,4 +1,4 @@
-# 🛠️ Guía de Calibración de Sensores
+# 🛠️ Guía de Calibración de Sensores v6.0C
 
 Para que el modo automático del extractor funcione de manera óptima, es fundamental ajustar los umbrales de los sensores a las condiciones específicas de tu entorno.
 
@@ -53,11 +53,11 @@ Los umbrales de humedad (`HUMIDITY_THRESHOLD_HIGH` y `HUMIDITY_THRESHOLD_LOW`) d
 
 ---
 
-## 3. Ajuste Fino del PWM del Ventilador
+## 3. Ajuste Fino del PWM del Ventilador (Delta 12V)
 
-El firmware mapea la velocidad del 1% al 100% a un rango de PWM de 80 a 255. El valor mínimo de 80 (`PWM_MIN_DUTY`) es para asegurar que el motor del ventilador siempre arranque, ya que muchos motores DC no se mueven con valores de PWM muy bajos.
+El firmware v6.0C mapea la velocidad del 1% al 100% a un rango de PWM de **51 a 255**. El valor mínimo de 51 (20%) es para asegurar que el motor Delta arranque correctamente y no se quede bloqueado.
 
--   **Si tu ventilador es muy potente y quieres que la velocidad mínima sea más suave**: Puedes intentar bajar `PWM_MIN_DUTY` a `70` o `60`.
--   **Si tu ventilador no arranca en la velocidad manual del 25%**: Necesitas subir `PWM_MIN_DUTY`. Auméntalo a `90` o `100`.
+-   **Si el ventilador no arranca en la velocidad mínima**: Necesitas subir `PWM_MIN_VALUE` en `src/main.cpp`. Auméntalo a `60` o `70`.
+-   **Si el ventilador hace ruido eléctrico pero no gira**: Sube el valor mínimo.
 
-Para hacer el cambio, modifica la línea `#define PWM_MIN_DUTY 80` en `src/main.cpp`.
+Para hacer el cambio, modifica la línea `#define PWM_MIN_VALUE 51` en `src/main.cpp`.

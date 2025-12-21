@@ -1,57 +1,44 @@
-Guía de Uso del Extractor Inteligente
+# 📖 Guía de Uso - Extractor Inteligente v6.0C
 
-Tu nuevo sistema de extracción de aire tiene dos modos de funcionamiento.
+Tu sistema de extracción de aire tiene dos modos principales de funcionamiento y una función de seguridad.
 
-1. Modo Automático (Por defecto)
+---
 
+## 1. Modo Automático (Por defecto)
 Al encender el sistema, siempre arrancará en este modo.
 
-Qué hace: El sistema monitoriza constantemente la temperatura, la humedad y la calidad del aire.
+- **¿Qué hace?**: Monitoriza constantemente temperatura, humedad y calidad del aire.
+- **Funcionamiento**: El ventilador se activa solo si se superan los umbrales (ej. ducha, humo, calor). La velocidad varía automáticamente entre 40% y 100%.
+- **Pantalla**: Muestra los valores de los sensores y el estado "STANDBY" o la potencia del ventilador.
 
-Pantalla: Verás los valores de los sensores en la parte superior y el texto "MODO AUTOMÁTICO".
+---
 
-Funcionamiento: Si el sistema detecta que la humedad, la temperatura o la calidad del aire superan los límites configurados, activará el ventilador automáticamente. La velocidad del ventilador se ajustará según lo "malo" que esté el aire.
+## 2. Modo Manual (Temporizador)
+Para activar el ventilador manualmente por un tiempo fijo.
 
-Indicador: Cuando el ventilador esté activo, la pantalla mostrará la potencia, ej: "VENTILADOR: 70%".
+1. **Entrar**: Desde el modo Automático, **Pulsa la Rueda (Encoder)**.
+2. **Tiempo**: Gira la rueda para elegir entre 30, 60 o 90 min. **Pulsa la Rueda** para confirmar.
+3. **Velocidad**: Gira la rueda para elegir entre 25%, 50%, 75% o 100%. **Pulsa la Rueda** para iniciar.
+4. **En Marcha**: Verás la cuenta regresiva y la velocidad fijada.
 
-2. Modo Manual (Temporizador)
+---
 
-Si quieres activar el ventilador manualmente con un control preciso.
+## 3. Función de Pausa de Emergencia
+Si necesitas detener el ventilador instantáneamente sin apagar el ESP32.
 
-Activar: Desde el MODO AUTOMÁTICO, pulsa el botón ENTER.
+- **Activar**: Mantén pulsado el botón **BAK (GPIO 26)** durante 2 segundos.
+- **Efecto**: El ventilador se apaga y el temporizador se detiene (si estaba activo).
+- **Reanudar**: Mantén pulsado **BAK** otros 2 segundos para volver al estado anterior.
 
-Seleccionar Tiempo:
+---
 
-Aparecerá un menú con las opciones: 30, 60 y 90 minutos.
+## 4. Controles y Botones
+- **Girar Rueda**: Navegar por las listas de los menús.
+- **Pulsar Rueda (OK)**: Confirmar la selección y avanzar al siguiente paso.
+- **Botón CONFIRM (BACK)**: Volver atrás en el menú o cancelar el temporizador manual para volver al modo automático.
+- **Botón BAK (PAUSE)**: Pausa de emergencia (Pulsación larga 2s).
 
-Gira la rueda (encoder) para mover el selector >.
+---
 
-Pulsa ENTER para confirmar el tiempo.
-
-Seleccionar Velocidad:
-
-Aparecerá un segundo menú con 4 niveles de velocidad (Baja, Media, Alta, Máx).
-
-Gira la rueda (encoder) para mover el selector >.
-
-Confirmar:
-
-Pulsa ENTER de nuevo.
-
-El ventilador se encenderá a la velocidad seleccionada durante el tiempo seleccionado.
-
-La pantalla mostrará "MANUAL ACTIVO", la velocidad y la cuenta regresiva (MM:SS).
-
-Finalización:
-
-Cuando el tiempo llegue a 00:00, el ventilador se apagará y el sistema volverá solo al MODO AUTOMÁTICO.
-
-3. Cancelar Modo Manual
-
-Puedes cancelar o corregir el modo manual en cualquier momento.
-
-Desde la pantalla de SELECCIÓN DE TIEMPO: Pulsa el botón BACK para volver al MODO AUTOMÁTICO sin hacer nada.
-
-Desde la pantalla de SELECCIÓN DE VELOCIDAD: Pulsa el botón BACK para volver a la pantalla anterior (SELECCIÓN DE TIEMPO) y corregir el tiempo si te has equivocado.
-
-Desde la pantalla de CUENTA REGRESIVA: Si el temporizador ya está activo, pulsa ENTER o BACK (cualquiera de los dos) para cancelar, apagar el ventilador y volver inmediatamente al MODO AUTOMÁTICO.
+## 5. Recomendaciones de Calibración
+El sensor **MQ135** (aire) realiza una limpieza de 30 segundos cada vez que el sistema arranca. Para lecturas más precisas de aire, el sistema debe llevar encendido al menos 24 horas.

@@ -1,28 +1,32 @@
-# Diagrama de Alimentación y GND Común
+# Diagrama de Alimentación y GND Común - v6.0C
 
-Este diagrama ilustra cómo se alimentan los dos circuitos del proyecto (5V y 12V) y cómo se establece la conexión crítica del GND común.
+Este diagrama ilustra cómo se alimentan los circuitos de 5V (Lógica) y 12V (Potencia) y la importancia del GND común.
 
 ```mermaid
 graph TD
-    subgraph "Circuito de Lógica"
-        A[Fuente 5V / Cargador USB]
-        A -- "+5V" --> B(ESP32 DevKit);
-        A -- "GND (Negativo)" --> G1(GND);
-        B -- "Pines de 5V/3.3V" --> C((Sensores, OLED, Controles));
+    subgraph "Circuito de Logica"
+        A[Fuente 5V / USB]
+        A -- "+5V" --> B(ESP32 + Placa Expansion);
+        A -- "GND" --> G1(GND);
+        B -- "3.3V" --> C((Sensores, OLED, Controles));
     end
 
     subgraph "Circuito de Potencia"
-        D[Fuente 12V / 5A]
-        D -- "+12V" --> E{Circuito Relé/MOSFET};
-        E -- "Potencia" --> F((Ventilador 2.7A));
-        D -- "GND (Negativo)" --> G2(GND);
+        D[Fuente 12V / 4A]
+        D -- "+12V" --> E{Rele KY-019};
+        E -- "+12V Switch" --> F((Ventilador Delta 2.7A));
+        D -- "GND" --> G2(GND);
+        F -- "Retorno PWM" --> M[MOSFET FQP30N06L];
+        M -- "GND" --> G2;
     end
 
-    %% Conexión Crítica
-    G1 -- "CONEXIÓN DE GND COMÚN (CRÍTICO)" --> G2;
+    %% Conexion Critica
+    G1 -- "CONEXION DE GND COMUN (OBLIGATORIA)" --> G2;
 
     %% Estilos
     style A fill:#00BCD4,color:#fff
     style D fill:#F44336,color:#fff
+    style G1 fill:#000,color:#fff
+    style G2 fill:#000,color:#fff
     linkStyle 2 stroke:#ff0000,stroke-width:3px,stroke-dasharray: 5 5;
 ```

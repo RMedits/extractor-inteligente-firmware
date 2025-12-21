@@ -1,4 +1,4 @@
-# 📝 Guía de Montaje Físico y Consideraciones
+# 📝 Guía de Montaje Físico y Consideraciones v6.0C
 
 La correcta disposición física de los componentes es fundamental para el buen funcionamiento del sistema, la precisión de los sensores y la seguridad.
 
@@ -6,74 +6,55 @@ La correcta disposición física de los componentes es fundamental para el buen 
 
 La regla más importante es **separar la electrónica de potencia (12V) de la electrónica de control y sensores (3.3V/5V)**.
 
-- **Carcasa/Caja**: Se recomienda encarecidamente montar todo dentro de una caja de plástico o un material no conductor. Esto protege los circuitos y evita cortocircuitos accidentales.
-- **Separación Física**: Dentro de la caja, intenta crear dos "zonas":
-  - **Zona de Potencia**: Donde se ubican el relé, el MOSFET, los terminales para la fuente de 12V y el ventilador.
-  - **Zona de Control**: Donde se ubican el ESP32, los sensores y los controles.
-- **Distancia Mínima**: Mantén una distancia de al menos **2-3 centímetros** entre los componentes de potencia y los de control para minimizar la interferencia electromagnética.
+- **Carcasa/Caja**: Se recomienda montar todo dentro de una caja de plástico.
+- **Zonas**: Crea una "Zona de Potencia" (Relé, MOSFET, 12V) y una "Zona de Control" (ESP32, Sensores).
+- **GND Común**: Es obligatorio que el negativo (-) de la fuente de 12V y el GND del ESP32 estén unidos en un solo punto.
 
 ---
 
-## 2. Ubicación de los Sensores (¡Crítico!)
+## 2. Montaje del MOSFET FQP30N06L (Crítico)
 
-La ubicación de los sensores determina la eficacia del modo automático.
+El MOSFET controla la velocidad del ventilador mediante PWM.
 
-- **BME280 (Temperatura y Humedad)**:
-  - **Flujo de Aire**: Debe estar en un lugar donde pueda medir el aire real del ambiente, no el aire estancado dentro de la caja.
-  - **Lejos del Calor**: **No lo coloques cerca del ESP32, del MOSFET o del sensor MQ135**. Estos componentes generan calor y alterarán drásticamente las lecturas de temperatura, provocando que el ventilador se active incorrectamente.
-  - **Sugerencia**: Móntalo en una pequeña rejilla de ventilación de la propia caja, con el sensor mirando hacia afuera.
-
-- **MQ135 (Calidad de Aire)**:
-  - **Flujo de Aire**: Al igual que el BME280, necesita estar expuesto al aire del ambiente.
-  - **Separación del BME280**: El MQ135 se calienta por diseño para funcionar. Colócalo a **al menos 1-2 cm de distancia** del BME280 para no falsear la lectura de temperatura.
-  - **Sugerencia**: Móntalo en la misma rejilla que el BME280, pero con una pequeña separación.
-
----
-
-## 3. Longitud y Gestión de Cables
-
-La longitud de los cables puede afectar la integridad de la señal, especialmente para los sensores.
-
-- **Cables de Potencia (12V para el ventilador)**:
-  - **Calibre**: Usa un cable de calibre adecuado para la corriente que consume tu ventilador (AWG 22 o 20 suele ser suficiente para la mayoría de los ventiladores de PC).
-  - **Longitud**: Mantenlos lo más cortos posible.
-
-- **Cables de Sensores (I2C y Analógico)**:
-  - **Límite de I2C (SDA/SCL)**: El bus I2C es sensible a la longitud. Para una comunicación fiable sin componentes adicionales, los cables para el BME280 y la pantalla OLED **no deberían superar los 20-30 cm**. Si necesitas más distancia, tendrías que usar un módulo expansor de bus I2C.
-  - **Límite Analógico (MQ135)**: Las señales analógicas son susceptibles al ruido. Mantén el cable del pin `AOUT` del MQ135 al ESP32 **lo más corto posible (idealmente menos de 20 cm)**.
-
-- **Cables de Controles (Encoder y Botones)**:
-  - Son señales digitales y menos sensibles. Pueden ser más largos, pero por buena práctica, mantenlos ordenados y sin una longitud excesiva.
+- **Ubicación de Resistencias**:
+    - **Resistencia 10kΩ (Pulldown)**: DEBE ir soldada o conectada lo más cerca posible de los pines **Gate** y **Source** del MOSFET. Esto evita que el ventilador se encienda solo por ruido estático.
+    - **Resistencia 220Ω**: Entre el pin Gate del MOSFET y el cable que viene del GPIO 14.
+- **Pinout (Visto de frente, letras hacia ti)**:
+    1. **Gate** (Izquierda) -> GPIO 14 (vía 220Ω)
+    2. **Drain** (Centro/Tab) -> Negativo del Ventilador
+    3. **Source** (Derecha) -> GND Común
+- **Disipación**: Aunque el FQP30N06L aguanta 30A, con el ventilador Delta de 2.7A se recomienda usar un pequeño disipador de aluminio TO-220 si va a funcionar por periodos largos.
 
 ---
 
-## 4. Reducción de Ruido e Interferencias
+## 3. Protección con Diodo 1N5408
 
-El motor del ventilador y el relé pueden introducir ruido eléctrico en el sistema.
+El ventilador Delta es un motor potente que genera picos de voltaje al apagarse (fuerza contraelectromotriz).
 
-- **Cruzar Cables**: Evita pasar los cables de los sensores en paralelo y pegados a los cables de 12V del ventilador. Si tienen que cruzarse, hazlo en un ángulo de 90 grados para minimizar la interferencia.
-- **Cables Trenzados (Opcional)**: Si experimentas lecturas de sensores inestables y los cables son algo largos, puedes trenzar el cable de señal (SDA, SCL, AOUT) con un cable conectado a GND. Esto crea un blindaje simple que puede reducir el ruido.
+- **Instalación**: El diodo debe ir en paralelo con el ventilador.
+- **Polaridad**:
+    - El lado con la **franja blanca (Cátodo)** va al cable **POSITIVO (+12V)** del ventilador.
+    - El otro lado (Ánodo) va al cable **NEGATIVO** del ventilador (el que va al Drain del MOSFET).
+- **Importancia**: Sin este diodo, el MOSFET se quemará en pocos usos.
 
 ---
 
-## 5. Ejemplo de Disposición Física (Layout)
+## 4. Ubicación de los Sensores
 
-Imagina una caja de montaje estándar:
+- **BME280**: Lejos de fuentes de calor (ESP32, MQ135). Debe estar cerca de una rejilla para medir el aire real.
+- **MQ135**: Necesita precalentarse. Colócalo de forma que el calor que genera no afecte al BME280.
 
-1.  **Panel Frontal**:
-    - Realiza un único recorte rectangular para el **Módulo Integrado**.
-    - Fija el módulo de manera que la pantalla OLED, el encoder rotativo y los botones sean accesibles desde el exterior. Esto simplifica enormemente el montaje en comparación con la instalación de cada componente por separado.
+---
 
-2.  **Interior - Parte Trasera/Inferior**:
-    - Fija la placa del ESP32.
-    - Cerca del ESP32, pero en la "zona de control", monta una pequeña protoboard o placa de circuito para organizar las conexiones de los sensores y controles.
+## 5. Módulo de Pantalla y Controles
 
-3.  **Interior - Parte Separada (Zona de Potencia)**:
-    - Monta el relé y el MOSFET.
-    - Coloca los terminales de tornillo para la entrada de 12V y la salida al ventilador.
+El módulo Estardyn facilita el montaje:
+1. Realiza un corte rectangular en el frontal de la caja.
+2. Fija el módulo con tornillos o adhesivo.
+3. Asegúrate de que el **Encoder PUSH** (pulsar rueda) tiene espacio para hacer "clic" correctamente.
 
-4.  **Pared Lateral o Superior (con rejilla)**:
-    - Haz pequeños agujeros o una rejilla.
-    - Monta los sensores BME280 y MQ135 de manera que queden expuestos al aire exterior, pero protegidos de salpicaduras directas.
+---
 
-Este diseño asegura que los controles sean accesibles, los sensores midan correctamente y los circuitos de potencia y control estén debidamente separados.
+## 6. Longitud de Cables
+- **I2C (OLED/BME280)**: Máximo 25cm. Si el cable es muy largo, la pantalla puede mostrar basura o el sensor fallar.
+- **Potencia**: Usa cable de calibre 18 AWG o similar para los 12V del ventilador.

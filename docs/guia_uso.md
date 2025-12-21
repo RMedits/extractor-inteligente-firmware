@@ -1,59 +1,44 @@
-# 📖 Guía de Uso (v6.0)
+# 📖 Guía de Uso - Extractor Inteligente v6.0C
 
-Esta guía explica cómo operar el Extractor Inteligente con la nueva lógica de botones optimizada.
-
-## 🎮 Controles Principales
-
-| Botón Físico | Acción | Función Principal |
-| :--- | :--- | :--- |
-| **Encoder** | Girar | Navegar por las opciones de los menús. |
-| **Encoder** | Pulsar | **OK / Confirmar**: Avanza en los menús y activa funciones. |
-| **Botón `CONFIRM`** | Pulsar | **Back / Cancelar**: Vuelve al menú anterior o cancela una acción. |
-| **Botón `BAK`** | Pulsar | **Pausa / Reanudar**: Activa o desactiva el modo Pausa. |
+Tu sistema de extracción de aire tiene dos modos principales de funcionamiento y una función de seguridad.
 
 ---
 
-## ⚙️ Modos de Operación
+## 1. Modo Automático (Por defecto)
+Al encender el sistema, siempre arrancará en este modo.
 
-### 1. Modo Automático
-Es el modo por defecto al encender el sistema.
-- **Qué hace**: Monitoriza el ambiente y enciende el ventilador a una velocidad proporcional si la humedad, temperatura o calidad del aire superan los umbrales.
-- **Pantalla**: Muestra "MODO AUTOMATICO" y la velocidad del ventilador si está activo.
-
-### 2. Modo Manual (Selección y Activación)
-
-Para activar el ventilador con un tiempo y velocidad específicos, sigue estos pasos:
-
-1.  **Entrar al Menú**: Desde el `Modo Automático`, **pulsa el encoder**. Entrarás al menú de `Selección de Tiempo`.
-2.  **Seleccionar Tiempo**:
-    - **Gira el encoder** para elegir entre 30, 60 o 90 minutos.
-    - **Pulsa el encoder** para confirmar. Pasarás al menú de `Selección de Velocidad`.
-    - *Para cancelar y volver al modo automático, pulsa el botón `CONFIRM`.*
-3.  **Seleccionar Velocidad**:
-    - **Gira el encoder** para elegir entre 25%, 50%, 75% o 100%.
-    - **Pulsa el encoder** para confirmar y activar el modo manual.
-    - *Para corregir el tiempo, pulsa el botón `CONFIRM` para volver al menú anterior.*
-4.  **Modo Manual Activo**:
-    - El ventilador se encenderá a la velocidad y durante el tiempo seleccionados.
-    - La pantalla mostrará "MANUAL ACTIVO" y la cuenta regresiva.
-    - *Para cancelar en cualquier momento y volver al modo automático, pulsa el encoder o el botón `CONFIRM`.*
+- **¿Qué hace?**: Monitoriza constantemente temperatura, humedad y calidad del aire.
+- **Funcionamiento**: El ventilador se activa solo si se superan los umbrales (ej. ducha, humo, calor). La velocidad varía automáticamente entre 40% y 100%.
+- **Pantalla**: Muestra los valores de los sensores y el estado "STANDBY" o la potencia del ventilador.
 
 ---
 
-### 3. ⏸️ Modo Pausa (Función de Emergencia)
+## 2. Modo Manual (Temporizador)
+Para activar el ventilador manualmente por un tiempo fijo.
 
-Esta es la función más importante del botón `BAK`.
+1. **Entrar**: Desde el modo Automático, **Pulsa la Rueda (Encoder)**.
+2. **Tiempo**: Gira la rueda para elegir entre 30, 60 o 90 min. **Pulsa la Rueda** para confirmar.
+3. **Velocidad**: Gira la rueda para elegir entre 25%, 50%, 75% o 100%. **Pulsa la Rueda** para iniciar.
+4. **En Marcha**: Verás la cuenta regresiva y la velocidad fijada.
 
-- **Para Activar la Pausa**:
-  - En **cualquier modo** (Automático o Manual Activo), pulsa el botón `BAK`.
-  - El ventilador se **apagará inmediatamente**.
-  - Si estabas en modo manual, el **temporizador se congelará**.
-  - La pantalla mostrará "PAUSA" y el tiempo restante (si aplica).
+---
 
-- **Para Desactivar la Pausa**:
-  - Vuelve a pulsar el botón `BAK`.
-  - El sistema **reanudará exactamente donde lo dejó**:
-    - Si estabas en `Modo Automático`, volverá a evaluar los sensores.
-    - Si estabas en `Modo Manual Activo`, el ventilador se encenderá a la velocidad que tenías y el temporizador continuará la cuenta regresiva.
+## 3. Función de Pausa de Emergencia
+Si necesitas detener el ventilador instantáneamente sin apagar el ESP32.
 
-**Esta función es ideal para silenciar el ventilador temporalmente sin tener que cancelar y reconfigurar todo el ciclo manual.**
+- **Activar**: Mantén pulsado el botón **BAK (GPIO 26)** durante 2 segundos.
+- **Efecto**: El ventilador se apaga y el temporizador se detiene (si estaba activo).
+- **Reanudar**: Mantén pulsado **BAK** otros 2 segundos para volver al estado anterior.
+
+---
+
+## 4. Controles y Botones
+- **Girar Rueda**: Navegar por las listas de los menús.
+- **Pulsar Rueda (OK)**: Confirmar la selección y avanzar al siguiente paso.
+- **Botón CONFIRM (BACK)**: Volver atrás en el menú o cancelar el temporizador manual para volver al modo automático.
+- **Botón BAK (PAUSE)**: Pausa de emergencia (Pulsación larga 2s).
+
+---
+
+## 5. Recomendaciones de Calibración
+El sensor **MQ135** (aire) realiza una limpieza de 30 segundos cada vez que el sistema arranca. Para lecturas más precisas de aire, el sistema debe llevar encendido al menos 24 horas.
