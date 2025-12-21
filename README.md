@@ -1,13 +1,14 @@
-# 🌬️ Extractor de Aire Inteligente v6.6C FINAL
+# 🌬️ Extractor de Aire Inteligente v7.0C FINAL
 
-Sistema de extracción automatizado basado en ESP32 para baño o galería, optimizado para ventiladores industriales de alta potencia (Delta 12V 2.70A) con seguridad redundante.
+Sistema de extracción automatizado basado en ESP32 para baño o galería, optimizado para ventiladores industriales de alta potencia (Delta 12V 2.70A) con seguridad redundante y diagnóstico avanzado.
 
 ## 🚀 Características Finales
 - **Modo Automático:** Control inteligente de velocidad basado en Humedad (AHT20/BMP280), Temperatura (AHT20/BMP280) y Calidad de Aire (MQ135).
 - **Modo Manual:** Temporizador programable (30/60/90 min) con selección de potencia.
+- **Diagnóstico Visual:** Pantalla de error detallada indicando qué sensor específico ha fallado.
 - **Seguridad Mejorada:**
     - **Watchdog Timer:** Reinicio automático si el sistema se bloquea por 8 segundos.
-    - **Sensor Failover:** Si un sensor I2C falla, el sistema intenta usar el otro o entra en modo seguro.
+    - **Sensor Failover:** Si un sensor I2C falla, el sistema intenta usar el otro. Si ambos fallan, bloqueo seguro.
     - **Modo Ciego:** Si la pantalla OLED falla, el sistema sigue funcionando indicando estado por LEDs.
 - **Interfaz OLED:** Pantalla de 1.3" (SH1106) con navegación mediante Encoder rotativo y 3 botones físicos.
 - **LEDs de Estado:** Verde (OK) y Rojo (Error/Standby) para diagnóstico rápido.

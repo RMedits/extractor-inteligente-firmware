@@ -8,7 +8,7 @@ Tu Tarea: Tu objetivo es ayudar a desarrollar el firmware para el proyecto "Extr
 
 Sistema de extracción de aire inteligente para baño/galería con control automático (basado en sensores) y manual (temporizado).
 
-🔧 COMPONENTES CONFIRMADOS (MONTAJE FINAL v6.9C)
+🔧 COMPONENTES CONFIRMADOS (MONTAJE FINAL v7.0C)
 
 Hardware Principal:
 - Microcontrolador: ESP32-WROOM-32 (Versión 38 pines, USB Tipo-C, CP2102).

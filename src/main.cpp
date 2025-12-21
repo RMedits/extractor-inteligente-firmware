@@ -1,7 +1,7 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.9C
+  Extractor Inteligente para Bano/Galeria v7.0C FINAL
   Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones + LEDs Estado
-  Mejoras v6.9C: Sanity Check Sensores, FormatTime Helper
+  Mejoras v7.0C: Diagnostico visual detallado de fallo de sensores.
 */
 
 #include <Wire.h>
@@ -148,7 +148,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V6.9C...");
+      display.println("V7.0C...");
       display.display();
   }
 
@@ -365,7 +365,7 @@ void runLogic() {
     if (humidity >= HUMIDITY_THRESHOLD_HIGH) speed = 100;
     else if (humidity >= HUMIDITY_THRESHOLD_LOW) speed = 70;
     else if (temperature >= TEMP_THRESHOLD) speed = 60;
-    else if (airQualityScore >= 250) speed = 40; // Score normalizado > 250 (aprox raw 600)
+    else if (airQualityScore >= 250) speed = 40; 
     controlFan(speed);
   } else if (currentMode == MANUAL_ACTIVO) {
     unsigned long elapsed = millis() - manualTimerStartTime;
@@ -398,9 +398,13 @@ void updateDisplay() {
   
   if (currentMode == SENSORS_FAIL) {
       display.setTextSize(2); 
-      display.setCursor(10, 10); display.println("! ERROR !");
+      display.setCursor(10, 5); display.println("! ERROR !");
       display.setTextSize(1); 
-      display.setCursor(5, 35); display.println("Fallo Sensores");
+      display.setCursor(5, 30); display.println("Fallo de Sensores:");
+      display.setCursor(5, 45);
+      if (!bmpReady && !ahtReady) display.println("BME280 + AHT20");
+      else if (!bmpReady) display.println("Solo BME280"); // Poco probable, pero posible si falla init
+      else display.println("Solo AHT20");
       display.display();
       return;
   }
