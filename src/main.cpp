@@ -1,7 +1,7 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.8C
+  Extractor Inteligente para Bano/Galeria v6.9C
   Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones + LEDs Estado
-  Mejoras v6.8C: Fail-Safe Sensores en tiempo real, Validacion Rangos
+  Mejoras v6.9C: Sanity Check Sensores, FormatTime Helper
 */
 
 #include <Wire.h>
@@ -78,8 +78,8 @@ int selectedSpeed = 1;
 // Timer Variables (Overflow Safe)
 unsigned long manualTimerStartTime = 0;
 unsigned long manualDurationMillis = 0;
-long pausedTimeLeft = 0; 
-long manualTimeLeft = 0; 
+unsigned long pausedTimeLeft = 0; 
+unsigned long manualTimeLeft = 0; 
 
 int manualFanSpeed = 0;
 int pausedFanSpeed = 0;
@@ -107,6 +107,7 @@ void runLogic();
 void controlFan(int percentage);
 void updateDisplay();
 void updateLeds();
+void formatTime(unsigned long ms, int &m, int &s);
 
 void setup() {
   Serial.begin(115200);
@@ -147,7 +148,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V6.8C...");
+      display.println("V6.9C...");
       display.display();
   }
 
@@ -195,7 +196,6 @@ void loop() {
 
 void updateLeds() {
     bool fanIsOn = (currentFanSpeed > 0);
-    // Rojo si hay fallo, o si todo OK pero apagado (Standby)
     if (currentMode == SENSORS_FAIL) {
         digitalWrite(LED_GREEN_PIN, LOW);
         digitalWrite(LED_RED_PIN, HIGH); 
@@ -265,37 +265,40 @@ void readSensors() {
   float h_sum = 0;
   int h_count = 0;
 
+  // Sanity Check Limits
+  const float MIN_TEMP = -10.0;
+  const float MAX_TEMP = 80.0;
+  const float MIN_HUM = 0.0;
+  const float MAX_HUM = 100.0;
+
   if (bmpReady) {
       float t = bmp.readTemperature();
-      if (!isnan(t)) { t_sum += t; t_count++; }
+      if (!isnan(t) && t > MIN_TEMP && t < MAX_TEMP) { t_sum += t; t_count++; }
   }
 
   if (ahtReady) {
       sensors_event_t hum, temp;
       aht.getEvent(&hum, &temp);
-      if (!isnan(temp.temperature)) { t_sum += temp.temperature; t_count++; }
-      if (!isnan(hum.relative_humidity)) { h_sum += hum.relative_humidity; h_count++; }
+      if (!isnan(temp.temperature) && temp.temperature > MIN_TEMP && temp.temperature < MAX_TEMP) { 
+          t_sum += temp.temperature; t_count++; 
+      }
+      if (!isnan(hum.relative_humidity) && hum.relative_humidity >= MIN_HUM && hum.relative_humidity <= MAX_HUM) { 
+          h_sum += hum.relative_humidity; h_count++; 
+      }
   }
 
   if (t_count > 0) temperature = t_sum / t_count;
-  else temperature = 25.0; // Fail-Safe Value
+  else temperature = 25.0; // Fail-Safe
 
   if (h_count > 0) humidity = h_sum / h_count;
-  else humidity = 50.0; // Fail-Safe Value
+  else humidity = 50.0; // Fail-Safe
 
-  // Validacion MQ135
   int raw = analogRead(MQ135_PIN);
-  if (raw >= 0 && raw <= 4095) {
-      airQualityRaw = raw;
-  } else {
-      airQualityRaw = 0; // Fail-Safe Aire Limpio
-  }
+  if (raw >= 0 && raw <= 4095) airQualityRaw = raw;
+  else airQualityRaw = 0; 
 
-  if (airQualityRaw <= MQ135_BASELINE) {
-      airQualityScore = 0;
-  } else {
-      airQualityScore = map(airQualityRaw, MQ135_BASELINE, 4095, 0, 1000);
-  }
+  if (airQualityRaw <= MQ135_BASELINE) airQualityScore = 0;
+  else airQualityScore = map(airQualityRaw, MQ135_BASELINE, 4095, 0, 1000);
 }
 
 void runLogic() {
@@ -362,7 +365,7 @@ void runLogic() {
     if (humidity >= HUMIDITY_THRESHOLD_HIGH) speed = 100;
     else if (humidity >= HUMIDITY_THRESHOLD_LOW) speed = 70;
     else if (temperature >= TEMP_THRESHOLD) speed = 60;
-    else if (airQualityRaw >= AIR_QUALITY_THRESHOLD) speed = 40;
+    else if (airQualityScore >= 250) speed = 40; // Score normalizado > 250 (aprox raw 600)
     controlFan(speed);
   } else if (currentMode == MANUAL_ACTIVO) {
     unsigned long elapsed = millis() - manualTimerStartTime;
@@ -382,6 +385,13 @@ void controlFan(int percentage) {
   else { digitalWrite(RELAY_PIN, HIGH); ledcWrite(PWM_CHANNEL, map(percentage, 1, 100, PWM_MIN_VALUE, PWM_MAX_VALUE)); }
 }
 
+void formatTime(unsigned long ms, int &m, int &s) {
+    unsigned long totSec = ms / 1000;
+    m = (int)(totSec / 60);
+    s = (int)(totSec % 60);
+    if(m > 99) m = 99;
+}
+
 void updateDisplay() {
   display.clearDisplay();
   display.setTextColor(SH110X_WHITE);
@@ -399,13 +409,14 @@ void updateDisplay() {
   display.setCursor(0, 0);
   display.printf("T:%.1fC H:%.0f%% A:%d", temperature, humidity, airQualityScore);
   
-  display.setCursor(85, 0);
+  display.setCursor(95, 0);
   if (airQualityScore < 200) display.print("OK");
-  else if (airQualityScore < 500) display.print("REG");
-  else display.print("MAL");
+  else display.print("!!");
   
   display.drawLine(0, 10, 127, 10, SH110X_WHITE);
   
+  int m, s;
+
   if (currentMode == AUTOMATICO) {
     display.setTextSize(2); display.setCursor(15, 20); display.println("MODO AUTO");
     display.setTextSize(1); display.setCursor(30, 50);
@@ -420,7 +431,8 @@ void updateDisplay() {
   } else if (currentMode == MANUAL_ACTIVO) {
     display.setTextSize(2); display.setCursor(10, 20); display.println("MANUAL");
     display.setTextSize(1); display.setCursor(10, 45);
-    int s = manualTimeLeft/1000; display.printf("V:%d%% T:%02d:%02d", manualFanSpeed, s/60, s%60);
+    formatTime(manualTimeLeft, m, s);
+    display.printf("V:%d%% T:%02d:%02d", manualFanSpeed, m, s);
   } else if (currentMode == PAUSA) {
     display.setTextSize(2); display.setCursor(30, 25); display.println("PAUSA");
   } else if (currentMode == DEBUG_INFO) {
