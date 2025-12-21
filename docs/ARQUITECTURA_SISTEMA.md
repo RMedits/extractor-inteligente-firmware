@@ -1,19 +1,19 @@
-# Arquitectura del Sistema
+# Arquitectura del Sistema - v7.1C FINAL
 
 Este diagrama muestra una vista de alto nivel de los componentes principales del sistema y cómo interactúan entre sí.
 
 ```mermaid
 graph TD
-    A[Sensores Ambientales] -- Datos (Temp, Hum, Aire) --> B{ESP32};
-    C[Controles de Usuario] -- Comandos (Giro, Pulsación) --> B;
+    A[Sensores Ambientales (AHT20/BMP280, MQ135)] -- Datos (Temp, Hum, Aire) --> B{ESP32};
+    C[Controles de Usuario (Encoder / Botones)] -- Comandos (Giro, Pulsación) --> B;
     B -- Lógica de Control --> D{Actuadores};
     D -- Control de Potencia --> E[Ventilador 12V];
-    F[Pantalla OLED] -- Información de Estado --> C;
+    F[Pantalla OLED + LEDs Estado] -- Información de Estado --> C;
     B -- Datos para Mostrar --> F;
 
     subgraph "Entradas"
-        A(BME280 / MQ135)
-        C(Encoder / Botones)
+        A
+        C
     end
 
     subgraph "Procesamiento"

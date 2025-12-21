@@ -1,50 +1,36 @@
-# 🔌 Esquema de Conexiones - v7.1C FINAL
-PROYECTO: Extractor Inteligente (Delta 12V 2.70A)
+# 🔌 Esquema de Conexiones - v7.1C FINAL (Hardware Real)
+PROYECTO: Extractor Inteligente (ESP32 38P + Shield Morada)
 
 ---
 
-## ⚠️ ADVERTENCIA DE SEGURIDAD
-Este montaje utiliza un ventilador de alta potencia. Es **OBLIGATORIO** el uso del **Diodo 1N5408** y las resistencias en el MOSFET para evitar daños irreversibles en el ESP32. Todos los GND deben estar unidos.
+## 1. Conexiones de Lógica y Control (Shield)
+
+| Etiqueta en Shield | Componente | Función |
+| :--- | :--- | :--- |
+| **P21** | Bus I2C | SDA (Datos) |
+| **P22** | Bus I2C | SCL (Reloj) |
+| **P32** | Encoder | TRA (Giro) |
+| **P33** | Encoder | TRB (Giro) |
+| **P27** | Encoder PUSH | Botón OK |
+| **P25** | Botón CONFIRM | Botón BACK |
+| **P26** | Botón BAK | Botón PAUSE (2s) |
+| **P34** | Sensor MQ135 | Salida Analógica |
+| **P23** | Relé KY-019 | Señal Control |
+| **P19** | MOSFET Gate | PWM Ventilador |
+| **P4**  | LED Rojo | Estado Error/Standby |
+| **P15** | LED Verde | Estado Funcionando |
 
 ---
 
-## 1. Conexiones de Lógica y Control (ESP32)
-
-| Pin ESP32 | Componente | Función | Notas |
-| :--- | :--- | :--- | :--- |
-| **GPIO 21** | Bus I2C | SDA | OLED + AHT20/BMP280 |
-| **GPIO 22** | Bus I2C | SCL | OLED + AHT20/BMP280 |
-| **GPIO 32** | Encoder | TRA (CLK) | Giro del encoder |
-| **GPIO 33** | Encoder | TRB (DT) | Giro del encoder |
-| **GPIO 27** | Encoder PUSH | OK | Pulsar la rueda |
-| **GPIO 25** | Botón CONFIRM | BACK | Botón físico lateral |
-| **GPIO 26** | Botón BAK | PAUSE | Botón físico lateral (2s) |
-| **GPIO 34** | Sensor MQ135 | AOUT | Analógico (Calidad Aire) |
-| **GPIO 23** | Relé KY-019 | Signal (S) | Corte general seguridad |
-| **GPIO 19** | MOSFET Gate | PWM | Control velocidad (Seguro) |
-| **GPIO 4**  | LED Rojo | Ánodo (+) | Error / Standby |
-| **GPIO 15** | LED Verde | Ánodo (+) | Funcionamiento OK |
+## 2. Alimentación y Tierra
+- **GND:** Usa cualquier pin de la **Fila G (Negra/Azul)**.
+- **5V:** Usa cualquier pin de la **Fila V (Roja)** (Asegura Jumper en 5V). Para Relé y MQ135.
+- **3.3V:** Usa el pin marcado como **3V3** en la esquina superior izquierda. Para OLED y AHT20/BMP280.
 
 ---
 
-## 2. Circuito de Potencia (12V)
-
-### MOSFET FQP30N06L
-- **PIN 1 (Gate):** GPIO 19 (vía resistencia 220Ω). *Añadir Pulldown 10kΩ a GND*.
-- **PIN 2 (Drain):** Cable NEGATIVO (-) del Ventilador.
-- **PIN 3 (Source):** GND Común (Negativo fuente 12V).
-
-### Relé KY-019
-- **COM:** Entrada +12V de la fuente.
-- **NO (Normalmente Abierto):** Salida hacia el cable POSITIVO (+) del Ventilador.
-
-### Protección (Diodo 1N5408)
-- **Cátodo (Franja):** Al cable POSITIVO del ventilador.
-- **Ánodo:** Al cable NEGATIVO del ventilador (Drain del MOSFET).
-
----
-
-## 3. Alimentación de Sensores
-- **AHT20/BMP280:** VCC a 3.3V, GND a GND.
-- **MQ135:** VCC a 5V (Vin), GND a GND.
-- **OLED/Encoder:** VCC a 3.3V, GND a GND.
+## 3. Circuito de Potencia
+- **MOSFET Gate:** Conectar a **P19** vía resistencia 220Ω. Poner resistencia 10kΩ a GND.
+- **MOSFET Drain:** Al negativo del ventilador.
+- **MOSFET Source:** A GND.
+- **Diodo 1N5408:** En paralelo al ventilador (Cátodo al positivo).

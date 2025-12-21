@@ -1,7 +1,7 @@
-# 🧠 Decisión Técnica: Arquitectura de Control de Potencia
+# 🧠 Decisión Técnica: Arquitectura de Control de Potencia - v7.1C FINAL
 
 **Fecha:** Diciembre 2024
-**Versión Firme:** v6.6C
+**Versión Firme:** v7.1C
 
 ---
 
@@ -15,7 +15,7 @@ Para este proyecto, hemos decidido estandarizar el control del ventilador utiliz
 - **Conexión:**
     - Drain MOSFET -> Negativo del Ventilador.
     - Source MOSFET -> GND Común.
-    - Gate MOSFET -> GPIO 14 (vía 220Ω).
+    - Gate MOSFET -> GPIO 19 (vía 220Ω). *GPIO 14 descartado por seguridad*.
 - **Lógica PWM:** **DIRECTA**
     - `PWM 0` (0%) -> MOSFET OFF -> Ventilador Apagado.
     - `PWM 255` (100%) -> MOSFET ON -> Ventilador a Máxima Potencia.

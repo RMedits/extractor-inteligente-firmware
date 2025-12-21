@@ -1,74 +1,61 @@
-# ESQUEMA ELECTRICO ASCII - v7.1C FINAL
-PROYECTO: Extractor Inteligente (Delta 12V 2.7A)
+# ESQUEMA ELECTRICO ASCII - v7.1C FINAL (Labels Reales)
+PROYECTO: Extractor Inteligente (Shield Morada 38P)
 
 ================================================================================
-1. CONEXIONES DE CONTROL (ESP32 Placa Expansion)
+1. CONEXIONES DE CONTROL (Usa Etiquetas Serigrafiadas en el Shield)
 ================================================================================
 
-   [ MODULO OLED + ENCODER ]             [ ESP32 WROOM 32 ]
-   -----------------------               ------------------
-   VCC (3.3V-5V)          <----------->  3.3V
-   GND                    <----------->  GND
-   OLED_SCL               <----------->  GPIO 22 (SCL)
-   OLED_SDA               <----------->  GPIO 21 (SDA)
-   ENCODER_TRA (CLK)      <----------->  GPIO 32
-   ENCODER_TRB (DT)       <----------->  GPIO 33
-   ENCODER_PUSH (OK)      <----------->  GPIO 27
-   CONFIRM (BACK)         <----------->  GPIO 25
-   BAK (PAUSE)            <----------->  GPIO 26
+   [ MODULO OLED + ENCODER ]             [ SHIELD ESP32 (Pines Macho S) ]
+   -----------------------               --------------------------------
+   VCC (3.3V-5V)          <----------->  Terminal 3V3 (Extremo Izq)
+   GND                    <----------->  Fila G (Cualquier negro)
+   OLED_SCL               <----------->  P22
+   OLED_SDA               <----------->  P21
+   ENCODER_TRA (CLK)      <----------->  P32
+   ENCODER_TRB (DT)       <----------->  P33
+   ENCODER_PUSH (OK)      <----------->  P27
+   CONFIRM (BACK)         <----------->  P25
+   BAK (PAUSE)            <----------->  P26
 
    [ SENSORES ]
    ------------
-   AHT20+BMP280 VCC (3.3V) <----------->  3.3V
-   AHT20+BMP280 GND       <----------->  GND
-   AHT20+BMP280 SCL       <----------->  GPIO 22 (I2C compartido)
-   AHT20+BMP280 SDA       <----------->  GPIO 21 (I2C compartido)
+   AHT20+BMP280 VCC       <----------->  Terminal 3V3 (Extremo Izq)
+   AHT20+BMP280 GND       <----------->  Fila G
+   AHT20+BMP280 SCL       <----------->  P22 (I2C compartido)
+   AHT20+BMP280 SDA       <----------->  P21 (I2C compartido)
 
-   MQ135 VCC (5V)         <----------->  5V (Vin)
-   MQ135 GND              <----------->  GND
-   MQ135 AO/AD            <----------->  GPIO 34 (Analog In)
-   MQ135 DO               <----------->  NC (No conectado)
+   MQ135 VCC (5V)         <----------->  Fila V (Roja - Jumper 5V)
+   MQ135 GND              <----------->  Fila G
+   MQ135 AO/AD            <----------->  P34
 
    [ LEDS ESTADO ]
    -------------
-   ROJO (+)      --[220R]-- GPIO 4  (Standby/Error)
-   VERDE (+)     --[220R]-- GPIO 15 (Funcionando)
-   GND           ---------- GND Comun
+   ROJO (+)      --[220R]-- P4
+   VERDE (+)     --[220R]-- P15
+   GND           ---------- Fila G
 
 ================================================================================
 2. CIRCUITO DE POTENCIA (Ventilador Delta 12V)
 ================================================================================
 
-   [ ESP32 ]          [ RELE KY-019 ]
-   ---------          ---------------
-   GPIO 23  --------> S (Signal)
-   5V       --------> + (VCC)
-   GND      --------> - (GND)
+   [ SHIELD PIN ]     [ RELE KY-019 ]
+   --------------     ---------------
+   P23  ------------> S (Signal)
+   Fila V (5V)  ----> + (VCC)
+   Fila G (GND) ----> - (GND)
 
-   [ ESP32 ]          [ MOSFET FQP30N06L ]
-   ---------          --------------------
-   GPIO 19  --[220R]-- Gate (Pin 1)
+   [ SHIELD PIN ]     [ MOSFET FQP30N06L ]
+   --------------     --------------------
+   P19  --[220R]----> Gate (Pin 1)
                         |
                       [10K] (Resistencia Pulldown)
                         |
-                       GND
-
-   [ ESQUEMA DE CARGA (12V) ]
-   --------------------------
-   FUENTE 12V (+) ------> RELE COM
-                          RELE NO ------> VENTILADOR (+)
-                                          VENTILADOR (-) --+--> MOSFET DRAIN (Pin 2)
-                                                           |
-                                                   [DIODO 1N5408] (Flyback)
-                                                           |
-   FUENTE 12V (-) -----------------------------------------+--> MOSFET SOURCE (Pin 3)
-                                                                |
-                                                               GND (Comun)
+                       GND (Fila G)
 
 ================================================================================
-3. NOTAS DE MONTAJE CRITICAS
+3. NOTAS CRITICAS
 ================================================================================
-- DIODO 1N5408: Instalar en paralelo al ventilador. La franja (catodo) va al positivo.
-- MOSFET: El pinout del FQP30N06L visto de frente es 1:Gate, 2:Drain, 3:Source.
-- RESISTENCIAS: La de 10K debe ir lo mas cerca posible del Gate del MOSFET.
-- GND: El GND de la fuente de 12V debe estar unido al GND del ESP32.
+- JUMPER VOLTAJE: Debe estar en la posicion "5V".
+- PWM PIN: Usamos P19 (GPIO 19) por seguridad en el arranque.
+- ALIMENTACION: Todo el sistema (ESP32, Rele, Sensores) se alimenta desde el 
+  puerto USB del ESP32 o Vin por ahora.

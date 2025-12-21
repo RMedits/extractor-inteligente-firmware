@@ -1,4 +1,4 @@
-# 🌬️ Extractor de Aire Inteligente v7.0C FINAL
+# 🌬️ Extractor de Aire Inteligente v7.1C FINAL
 
 Sistema de extracción automatizado basado en ESP32 para baño o galería, optimizado para ventiladores industriales de alta potencia (Delta 12V 2.70A) con seguridad redundante y diagnóstico avanzado.
 
@@ -24,13 +24,13 @@ Sistema de extracción automatizado basado en ESP32 para baño o galería, optim
 ## 📌 Pinout Resumido
 | Componente | Pin ESP32 | Función |
 | :--- | :--- | :--- |
-| **I2C** | SDA: 21 / SCL: 22 | Sensores + OLED |
-| **Encoder** | TRA: 32 / TRB: 33 / PUSH: 27 | Control Usuario |
-| **Botones** | BACK: 25 / PAUSA: 26 | Control Usuario |
-| **MQ135** | 34 | Calidad Aire (Analógico) |
-| **Relé** | 23 | Corte de Energía |
-| **MOSFET** | 14 | PWM Ventilador |
-| **LEDs** | Rojo: 4 / Verde: 15 | Estado Sistema |
+| **I2C** | SDA: P21 / SCL: P22 | Sensores + OLED |
+| **Encoder** | TRA: P32 / TRB: P33 / PUSH: P27 | Control Usuario |
+| **Botones** | BACK: P25 / PAUSA: P26 | Control Usuario |
+| **MQ135** | P34 | Calidad Aire (Analógico) |
+| **Relé** | P23 | Corte de Energía |
+| **MOSFET** | P19 | PWM Ventilador |
+| **LEDs** | Rojo: P4 / Verde: P15 | Estado Sistema |
 
 ## 💻 Instalación
 1. Clonar este repositorio.

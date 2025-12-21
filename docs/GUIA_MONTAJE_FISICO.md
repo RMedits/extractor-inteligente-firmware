@@ -1,4 +1,4 @@
-# 📝 Guía de Montaje Físico y Consideraciones v6.0C
+# 📝 Guía de Montaje Físico y Consideraciones v7.1C FINAL
 
 La correcta disposición física de los componentes es fundamental para el buen funcionamiento del sistema, la precisión de los sensores y la seguridad.
 
@@ -18,9 +18,9 @@ El MOSFET controla la velocidad del ventilador mediante PWM.
 
 - **Ubicación de Resistencias**:
     - **Resistencia 10kΩ (Pulldown)**: DEBE ir soldada o conectada lo más cerca posible de los pines **Gate** y **Source** del MOSFET. Esto evita que el ventilador se encienda solo por ruido estático.
-    - **Resistencia 220Ω**: Entre el pin Gate del MOSFET y el cable que viene del GPIO 14.
+    - **Resistencia 220Ω**: Entre el pin Gate del MOSFET y el cable que viene del GPIO 19.
 - **Pinout (Visto de frente, letras hacia ti)**:
-    1. **Gate** (Izquierda) -> GPIO 14 (vía 220Ω)
+    1. **Gate** (Izquierda) -> GPIO 19 (vía 220Ω)
     2. **Drain** (Centro/Tab) -> Negativo del Ventilador
     3. **Source** (Derecha) -> GND Común
 - **Disipación**: Aunque el FQP30N06L aguanta 30A, con el ventilador Delta de 2.7A se recomienda usar un pequeño disipador de aluminio TO-220 si va a funcionar por periodos largos.
@@ -41,8 +41,8 @@ El ventilador Delta es un motor potente que genera picos de voltaje al apagarse 
 
 ## 4. Ubicación de los Sensores
 
-- **BME280**: Lejos de fuentes de calor (ESP32, MQ135). Debe estar cerca de una rejilla para medir el aire real.
-- **MQ135**: Necesita precalentarse. Colócalo de forma que el calor que genera no afecte al BME280.
+- **AHT20/BMP280**: Lejos de fuentes de calor (ESP32, MQ135). Debe estar cerca de una rejilla para medir el aire real.
+- **MQ135**: Necesita precalentarse. Colócalo de forma que el calor que genera no afecte al AHT20/BMP280.
 
 ---
 
@@ -56,5 +56,5 @@ El módulo Estardyn facilita el montaje:
 ---
 
 ## 6. Longitud de Cables
-- **I2C (OLED/BME280)**: Máximo 25cm. Si el cable es muy largo, la pantalla puede mostrar basura o el sensor fallar.
+- **I2C (OLED/AHT20/BMP280)**: Máximo 25cm. Si el cable es muy largo, la pantalla puede mostrar basura o el sensor fallar.
 - **Potencia**: Usa cable de calibre 18 AWG o similar para los 12V del ventilador.

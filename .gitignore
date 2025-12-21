@@ -6,3 +6,6 @@
 .DS_Store
 Thumbs.db
 platformio_override.ini
+
+.gemini/
+gha-creds-*.json
