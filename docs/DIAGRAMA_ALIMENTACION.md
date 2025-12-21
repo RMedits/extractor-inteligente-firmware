@@ -1,4 +1,4 @@
-# Diagrama de Alimentación y GND Común - v6.0C
+# Diagrama de Alimentación y GND Común - v6.6C
 
 Este diagrama ilustra cómo se alimentan los circuitos de 5V (Lógica) y 12V (Potencia) y la importancia del GND común.
 
