@@ -1,7 +1,7 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.7C
+  Extractor Inteligente para Bano/Galeria v6.8C
   Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones + LEDs Estado
-  Mejoras v6.7C: GPIO Seguro (19), Calibracion MQ135, Safe Timers
+  Mejoras v6.8C: Fail-Safe Sensores en tiempo real, Validacion Rangos
 */
 
 #include <Wire.h>
@@ -23,7 +23,7 @@ Adafruit_SH1106G display = Adafruit_SH1106G(128, 64, &Wire, -1);
 Adafruit_BMP280 bmp;
 Adafruit_AHTX0 aht;
 #define MQ135_PIN 34
-#define MQ135_BASELINE 350 // Valor en aire limpio (ajustar tras 24h)
+#define MQ135_BASELINE 350 
 
 // Encoder
 #define ENCODER_TRA_PIN  32  
@@ -37,7 +37,7 @@ ESP32Encoder encoder;
 
 // Actuadores
 #define RELAY_PIN    23  
-#define FAN_PWM_PIN  19  // CAMBIO CRITICO: GPIO 19 es seguro al arranque (GPIO 14 no)
+#define FAN_PWM_PIN  19  
 #define PWM_CHANNEL  0
 #define PWM_FREQUENCY 25000
 #define PWM_RESOLUTION 8
@@ -52,7 +52,7 @@ ESP32Encoder encoder;
 #define HUMIDITY_THRESHOLD_HIGH 70.0f
 #define HUMIDITY_THRESHOLD_LOW  65.0f
 #define TEMP_THRESHOLD          30.0f
-#define AIR_QUALITY_THRESHOLD   600 // Base 350 + 250 margen
+#define AIR_QUALITY_THRESHOLD   600 
 
 // --- ESTADOS Y VARIABLES ---
 enum Mode { AUTOMATICO, SELECCION_TIEMPO, SELECCION_VELOCIDAD, MANUAL_ACTIVO, PAUSA, DEBUG_INFO, SENSORS_FAIL };
@@ -62,7 +62,7 @@ Mode previousMode = AUTOMATICO;
 float temperature = 0.0;
 float humidity = 0.0;
 int airQualityRaw = 0;
-int airQualityScore = 0; // 0-1000 Normalizado
+int airQualityScore = 0; 
 bool bmpReady = false;
 bool ahtReady = false;
 bool oledWorking = true;
@@ -78,14 +78,14 @@ int selectedSpeed = 1;
 // Timer Variables (Overflow Safe)
 unsigned long manualTimerStartTime = 0;
 unsigned long manualDurationMillis = 0;
-long pausedTimeLeft = 0; // Guardar tiempo restante al pausar
-long manualTimeLeft = 0; // Calculado dinamicamente para display
+long pausedTimeLeft = 0; 
+long manualTimeLeft = 0; 
 
 int manualFanSpeed = 0;
 int pausedFanSpeed = 0;
 long oldEncoderPosition = 0;
 
-// Debounce Variables (Volatile por seguridad futura)
+// Debounce Variables 
 volatile bool btnOkPressed = false;          
 volatile bool btnBackPressed = false;        
 volatile bool btnPausePressed = false;       
@@ -147,7 +147,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V6.7C...");
+      display.println("V6.8C...");
       display.display();
   }
 
@@ -163,16 +163,13 @@ void setup() {
   delay(1500);
   
   if (currentMode != SENSORS_FAIL) {
-      // Warm-up y Calibracion Inicial MQ135
-      for(int i = 10; i > 0; i--) {
+      for(int i = 5; i > 0; i--) {
         if (oledWorking) {
             display.clearDisplay();
             display.setTextSize(1);
-            display.setCursor(10, 10);
-            display.println("Calentando");
-            display.setCursor(10, 25);
-            display.println("Sensor Aire...");
-            display.setCursor(50, 45);
+            display.setCursor(10, 20);
+            display.println("Calibrando Aire...");
+            display.setCursor(50, 40);
             display.printf("%ds", i);
             display.display();
         }
@@ -198,19 +195,18 @@ void loop() {
 
 void updateLeds() {
     bool fanIsOn = (currentFanSpeed > 0);
-    bool sensorsOK = (bmpReady || ahtReady);
-
-    if (sensorsOK) {
+    // Rojo si hay fallo, o si todo OK pero apagado (Standby)
+    if (currentMode == SENSORS_FAIL) {
+        digitalWrite(LED_GREEN_PIN, LOW);
+        digitalWrite(LED_RED_PIN, HIGH); 
+    } else {
         if (fanIsOn) {
             digitalWrite(LED_GREEN_PIN, HIGH);
             digitalWrite(LED_RED_PIN, LOW);
         } else {
             digitalWrite(LED_GREEN_PIN, LOW);
-            digitalWrite(LED_RED_PIN, HIGH); // Standby
+            digitalWrite(LED_RED_PIN, HIGH); 
         }
-    } else {
-        digitalWrite(LED_GREEN_PIN, LOW);
-        digitalWrite(LED_RED_PIN, HIGH); // Fallo
     }
 }
 
@@ -282,12 +278,19 @@ void readSensors() {
   }
 
   if (t_count > 0) temperature = t_sum / t_count;
-  if (h_count > 0) humidity = h_sum / h_count;
+  else temperature = 25.0; // Fail-Safe Value
 
-  // Lectura y Mapeo MQ135
-  airQualityRaw = analogRead(MQ135_PIN);
-  // Mapear 0-4095 a 0-1000 relativo a la linea base
-  // Si raw < baseline, score = 0
+  if (h_count > 0) humidity = h_sum / h_count;
+  else humidity = 50.0; // Fail-Safe Value
+
+  // Validacion MQ135
+  int raw = analogRead(MQ135_PIN);
+  if (raw >= 0 && raw <= 4095) {
+      airQualityRaw = raw;
+  } else {
+      airQualityRaw = 0; // Fail-Safe Aire Limpio
+  }
+
   if (airQualityRaw <= MQ135_BASELINE) {
       airQualityScore = 0;
   } else {
@@ -307,7 +310,6 @@ void runLogic() {
     if (isPaused) {
       previousMode = currentMode;
       if (currentMode == MANUAL_ACTIVO) { 
-          // Guardar cuanto falta
           unsigned long elapsed = millis() - manualTimerStartTime;
           if (elapsed < manualDurationMillis) {
               pausedTimeLeft = manualDurationMillis - elapsed;
@@ -321,9 +323,8 @@ void runLogic() {
     } else {
       currentMode = previousMode;
       if (currentMode == MANUAL_ACTIVO) {
-        // Restaurar timer
         manualDurationMillis = pausedTimeLeft; 
-        manualTimerStartTime = millis(); // Reiniciar cuenta desde ahora con lo que faltaba
+        manualTimerStartTime = millis(); 
         manualFanSpeed = pausedFanSpeed;
         controlFan(manualFanSpeed);
       }
@@ -341,7 +342,7 @@ void runLogic() {
     else if (currentMode == SELECCION_VELOCIDAD) { 
         currentMode = MANUAL_ACTIVO; 
         manualTimerStartTime = millis(); 
-        manualDurationMillis = manualDurations[selectedDuration]; // Guardar duracion fija
+        manualDurationMillis = manualDurations[selectedDuration]; 
         manualFanSpeed = speedOptions[selectedSpeed]; 
         controlFan(manualFanSpeed); 
     }
@@ -361,10 +362,9 @@ void runLogic() {
     if (humidity >= HUMIDITY_THRESHOLD_HIGH) speed = 100;
     else if (humidity >= HUMIDITY_THRESHOLD_LOW) speed = 70;
     else if (temperature >= TEMP_THRESHOLD) speed = 60;
-    else if (airQualityRaw >= AIR_QUALITY_THRESHOLD) speed = 40; // Usar raw para umbral legacy
+    else if (airQualityRaw >= AIR_QUALITY_THRESHOLD) speed = 40;
     controlFan(speed);
   } else if (currentMode == MANUAL_ACTIVO) {
-    // Calculo Overflow Safe
     unsigned long elapsed = millis() - manualTimerStartTime;
     if (elapsed >= manualDurationMillis) {
         currentMode = AUTOMATICO;
@@ -395,12 +395,10 @@ void updateDisplay() {
       return;
   }
 
-  // Barra Superior
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.printf("T:%.1fC H:%.0f%%", temperature, humidity);
+  display.printf("T:%.1fC H:%.0f%% A:%d", temperature, humidity, airQualityScore);
   
-  // Calidad Aire Texto
   display.setCursor(85, 0);
   if (airQualityScore < 200) display.print("OK");
   else if (airQualityScore < 500) display.print("REG");

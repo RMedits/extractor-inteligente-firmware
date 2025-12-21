@@ -1,4 +1,4 @@
-# 📍 Pinout ESP32 38-PIN (Tipo-C) - v6.0C FINAL
+# 📍 Pinout ESP32 38-PIN (Tipo-C) - v6.8C FINAL
 Referencia para placa de 38 pines sobre Shield de expansión.
 
 ---
@@ -17,7 +17,7 @@ Referencia para placa de 38 pines sobre Shield de expansión.
 | **G25** | **Confirm** | Botón BACK |
 | **G26** | **BAK** | Botón PAUSA |
 | **G27** | **Encoder PUSH**| Botón OK |
-| **G14** | - | - |
+| **G14** | **NO USAR** | Inestable en Boot |
 | **G12** | - | - |
 | **G13** | - | - |
 | **GND** | GND | Común |

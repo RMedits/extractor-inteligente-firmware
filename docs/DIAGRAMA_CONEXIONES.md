@@ -1,22 +1,29 @@
-# 🔌 Diagrama de Conexiones - v6.0C FINAL
-Este documento detalla el cableado exacto para el proyecto del Extractor Inteligente.
+# 🔌 Diagrama de Conexiones - v6.8C FINAL
+PROYECTO: Extractor Inteligente (Delta 12V 2.70A)
 
 ---
 
-## 1. Módulo OLED 1.3" + Encoder Estardyn (3 Botones)
-Este módulo centraliza la pantalla y todos los controles de usuario.
+## ⚠️ ADVERTENCIA DE SEGURIDAD
+Este montaje utiliza un ventilador de alta potencia. Es **OBLIGATORIO** el uso del **Diodo 1N5408** y las resistencias en el MOSFET para evitar daños irreversibles en el ESP32. Todos los GND deben estar unidos.
 
-| Pin Módulo | Función | Pin ESP32 | Notas |
+---
+
+## 1. Conexiones de Lógica y Control (ESP32)
+
+| Pin ESP32 | Componente | Función | Notas |
 | :--- | :--- | :--- | :--- |
-| **VCC** | Alimentación | 3.3V | Puede alimentarse a 5V pero se recomienda 3.3V |
-| **GND** | Tierra | GND | Común con el sistema |
-| **OLED_SCL** | Reloj I2C | GPIO 22 | Compartido con BME280 |
-| **OLED_SDA** | Datos I2C | GPIO 21 | Compartido con BME280 |
-| **ENCODER_TRA** | Phase A (CLK) | GPIO 32 | Lectura de giro |
-| **ENCODER_TRB** | Phase B (DT) | GPIO 33 | Lectura de giro |
-| **ENCODER_PUSH**| Botón OK | GPIO 27 | **Pulsar rueda del encoder** |
-| **CONFIRM** | Botón BACK | GPIO 25 | Botón físico lateral |
-| **BAK** | Botón PAUSA | GPIO 26 | Botón físico lateral (Mantener 2s) |
+| **GPIO 21** | Bus I2C | SDA | OLED + AHT20/BMP280 |
+| **GPIO 22** | Bus I2C | SCL | OLED + AHT20/BMP280 |
+| **GPIO 32** | Encoder | TRA (CLK) | Giro del encoder |
+| **GPIO 33** | Encoder | TRB (DT) | Giro del encoder |
+| **GPIO 27** | Encoder PUSH | OK | Pulsar la rueda |
+| **GPIO 25** | Botón CONFIRM | BACK | Botón físico lateral |
+| **GPIO 26** | Botón BAK | PAUSE | Botón físico lateral (2s) |
+| **GPIO 34** | Sensor MQ135 | AOUT | Analógico (Calidad Aire) |
+| **GPIO 23** | Relé KY-019 | Signal (S) | Corte general seguridad |
+| **GPIO 19** | MOSFET Gate | PWM | Control velocidad (Seguro) |
+| **GPIO 4**  | LED Rojo | Ánodo (+) | Error / Standby |
+| **GPIO 15** | LED Verde | Ánodo (+) | Funcionamiento OK |
 
 ---
 
@@ -40,17 +47,21 @@ Este módulo centraliza la pantalla y todos los controles de usuario.
 
 ---
 
-## 3. Control de Potencia (Ventilador Delta 12V)
+## 3. Circuito de Potencia (12V)
+
+### MOSFET FQP30N06L (Control PWM)
+- **GATE (Pin 1):** Conectado a **GPIO 19** a través de resistencia de 220Ω.
+- **DRAIN (Pin 2):** Conectado al **NEGATIVO (-)** del Ventilador.
+- **SOURCE (Pin 3):** Conectado a **GND**.
 
 ### Relé KY-019 (Seguridad/Corte General)
 - **S (Señal):** GPIO 23
 - **+ (VCC):** 5V
 - **- (GND):** GND
 
-### MOSFET FQP30N06L (Control PWM)
-- **GATE (Pin 1):** Conectado a **GPIO 19** a través de resistencia de 220Ω. *Nota: GPIO 14 descartado por seguridad.*
-- **DRAIN (Pin 2):** Conectado al **NEGATIVO (-)** del Ventilador.
-- **SOURCE (Pin 3):** Conectado a **GND**.
+### Protección (Diodo 1N5408)
+- **Cátodo (Franja):** Al cable POSITIVO del ventilador.
+- **Ánodo:** Al cable NEGATIVO del ventilador (Drain del MOSFET).
 
 ### LEDs de Estado Externos (Opcionales)
 - **LED Rojo (Standby/Error):** Ánodo a **GPIO 4** (vía 220Ω), Cátodo a GND.
@@ -59,11 +70,10 @@ Este módulo centraliza la pantalla y todos los controles de usuario.
 ---
 
 ## 4. Componentes de Protección y Estabilidad
-- **Diodo 1N5408:** En paralelo con el ventilador (Cátodo a 12V+, Ánodo a Ventilador-).
 - **Resistencia 10kΩ:** Entre GATE del MOSFET y GND (Pulldown obligatorio).
-- **Resistencia 220Ω:** Para el GATE del MOSFET y para el LED de estado.
+- **Resistencia 220Ω:** Para el GATE del MOSFET y para los LEDs.
 
 ---
 
 ## ⚠️ Advertencia de Alimentación
-Asegúrate de unir todos los **GND** (Tierra) de las diferentes fuentes (12V del ventilador y 5V/USB del ESP32) para que el control PWM funcione correctamente.
+Asegúrate de unir todos los **GND** (Tierra) de las diferentes fuentes (12V del ventilador y 5V/USB del ESP32).

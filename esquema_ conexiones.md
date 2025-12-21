@@ -30,7 +30,7 @@ Este montaje utiliza un ventilador de alta potencia. Es **OBLIGATORIO** el uso d
 ## 2. Circuito de Potencia (12V)
 
 ### MOSFET FQP30N06L
-- **PIN 1 (Gate):** GPIO 14 (vía resistencia 220Ω). *Añadir Pulldown 10kΩ a GND*.
+- **PIN 1 (Gate):** GPIO 19 (vía resistencia 220Ω). *Añadir Pulldown 10kΩ a GND*.
 - **PIN 2 (Drain):** Cable NEGATIVO (-) del Ventilador.
 - **PIN 3 (Source):** GND Común (Negativo fuente 12V).
 

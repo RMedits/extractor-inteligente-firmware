@@ -1,4 +1,4 @@
-# Diagrama de Montaje Físico (Layout) - v6.6C
+# Diagrama de Montaje Físico (Layout) - v6.8C
 
 Disposición sugerida para los componentes dentro de la carcasa.
 
