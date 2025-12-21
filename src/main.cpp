@@ -1,7 +1,7 @@
 /*
-  Extractor Inteligente para Bano/Galeria v7.0C FINAL
+  Extractor Inteligente para Bano/Galeria v7.1C FINAL
   Hardware: ESP32 38-pin + Shield + AHT20/BMP280 + MQ135 + OLED 3-Botones + LEDs Estado
-  Mejoras v7.0C: Diagnostico visual detallado de fallo de sensores.
+  Mejoras v7.1C: Ajustes cosmeticos finales y rangos ampliados.
 */
 
 #include <Wire.h>
@@ -148,7 +148,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V7.0C...");
+      display.println("V7.1C...");
       display.display();
   }
 
@@ -266,8 +266,8 @@ void readSensors() {
   int h_count = 0;
 
   // Sanity Check Limits
-  const float MIN_TEMP = -10.0;
-  const float MAX_TEMP = 80.0;
+  const float MIN_TEMP = -40.0; // Rango real
+  const float MAX_TEMP = 85.0;
   const float MIN_HUM = 0.0;
   const float MAX_HUM = 100.0;
 
@@ -297,8 +297,12 @@ void readSensors() {
   if (raw >= 0 && raw <= 4095) airQualityRaw = raw;
   else airQualityRaw = 0; 
 
-  if (airQualityRaw <= MQ135_BASELINE) airQualityScore = 0;
-  else airQualityScore = map(airQualityRaw, MQ135_BASELINE, 4095, 0, 1000);
+  // Mapea RAW (350-4095) a Score (0-1000). 250+ activa ventilador (~600 RAW aprox)
+  if (airQualityRaw <= MQ135_BASELINE) {
+      airQualityScore = 0;
+  } else {
+      airQualityScore = map(airQualityRaw, MQ135_BASELINE, 4095, 0, 1000);
+  }
 }
 
 void runLogic() {
@@ -402,9 +406,9 @@ void updateDisplay() {
       display.setTextSize(1); 
       display.setCursor(5, 30); display.println("Fallo de Sensores:");
       display.setCursor(5, 45);
-      if (!bmpReady && !ahtReady) display.println("BME280 + AHT20");
-      else if (!bmpReady) display.println("Solo BME280"); // Poco probable, pero posible si falla init
-      else display.println("Solo AHT20");
+      if (!bmpReady && !ahtReady) display.println("TOTAL FALLO");
+      else if (!bmpReady) display.println("Solo AHT20 OK"); // BMP fallo
+      else display.println("Solo BMP OK"); // AHT fallo
       display.display();
       return;
   }
