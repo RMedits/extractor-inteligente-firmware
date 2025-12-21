@@ -1,10 +1,10 @@
-# 🔌 Esquema de Conexiones - v6.3C FINAL
-PROYECTO: Extractor Inteligente (Delta 12V 2.70A - Control 4 Pines)
+# 🔌 Esquema de Conexiones - v6.4C FINAL
+PROYECTO: Extractor Inteligente (Delta 12V 2.70A - Control PWM Protegido)
 
 ---
 
 ## ⚠️ ADVERTENCIA DE SEGURIDAD
-Este montaje utiliza un ventilador de alta potencia. Asegúrese de que la fuente de alimentación 12V sea capaz de suministrar al menos 3A-4A.
+Este montaje utiliza un ventilador de alta potencia y protege al ESP32 mediante una etapa de buffer.
 **Importante:** Todos los GND (Tierra) del ESP32 y de la fuente de 12V deben estar unidos.
 
 ---
@@ -22,36 +22,41 @@ Este montaje utiliza un ventilador de alta potencia. Asegúrese de que la fuente
 | **GPIO 26** | Botón BAK | PAUSE | Botón físico lateral (2s) |
 | **GPIO 34** | Sensor MQ135 | AOUT | Analógico (Calidad Aire) |
 | **GPIO 23** | Relé KY-019 | Signal (S) | Corte de Energía (ON/OFF) |
-| **GPIO 14** | Ventilador PWM | PWM | Control de Velocidad (Cable Azul/Verde) |
+| **GPIO 14** | MOSFET Gate | PWM Control | Buffer Inversor para PWM |
 | **GPIO 4**  | LED Rojo | Ánodo (+) | Error / Standby |
 | **GPIO 15** | LED Verde | Ánodo (+) | Funcionamiento OK |
 
 ---
 
-## 2. Circuito de Potencia (Ventilador 4 Pines)
+## 2. Circuito de Potencia y Protección
 
-El ventilador se controla mediante señal PWM directa y un Relé para corte total de energía. **No use MOSFET en la línea de tierra.**
+Se utiliza una topología Híbrida: Relé para corte de energía y MOSFET (Buffer) para protección de la señal PWM.
 
-### Relé KY-019 (Corte de Seguridad)
-- **VCC/GND:** A 5V y GND del ESP32/Fuente.
-- **Signal (S):** A GPIO 23.
-- **COM (Salida Relé):** A Fuente +12V.
-- **NO (Normalmente Abierto):** A Cable POSITIVO (+12V) del Ventilador.
+### A. Etapa de Relé (Corte de Seguridad)
+Controla la alimentación principal del ventilador.
+- **Relé VCC/GND:** A 5V y GND.
+- **Relé Signal:** A GPIO 23.
+- **Relé COM:** A Fuente +12V.
+- **Relé NO (Abierto):** A Cable POSITIVO (Rojo) del Ventilador.
 
-### Ventilador (Conector 4 Pines)
-- **Cable GND (-):** A GND Común (Fuente y ESP32).
-- **Cable 12V (+):** A Salida NO del Relé.
-- **Cable PWM (Control):** A GPIO 14 del ESP32.
-  - *Nota:* Si el ventilador requiere PWM de 5V y no funciona con los 3.3V del ESP32, utilice un Level Shifter o un transistor pequeño.
-- **Cable Tach (RPM):** No conectado (Opcional).
+### B. Etapa de MOSFET (Buffer de Señal PWM)
+Protege el GPIO del ESP32 de los 5V/12V del ventilador. Actúa como interruptor a tierra ("Open Drain").
+- **Componente:** MOSFET FQP30N06L (o 2N7000).
+- **Gate (G):** A GPIO 14 (vía resistencia 1kΩ).
+- **Source (S):** A GND.
+- **Drain (D):** A Cable PWM (Azul/Verde) del Ventilador.
+  * *Nota:* No se requiere resistencia pull-up externa (el ventilador la tiene interna).
+
+### C. Ventilador (Conector 4 Pines)
+- **Cable GND (-):** A GND Común.
+- **Cable 12V (+):** A Salida del Relé.
+- **Cable PWM:** Al Drain del MOSFET.
+- **Cable Tach:** No conectado.
 
 ---
 
-## 3. Sensores y Periféricos (I2C / 3.3V)
-Todos los dispositivos I2C comparten los pines 21 (SDA) y 22 (SCL).
-
-- **OLED 1.3" (SH1106):** VCC a 3.3V, GND a GND.
-- **AHT20 (Humedad/Temp):** VCC a 3.3V, GND a GND.
-- **BMP280 (Presión/Temp):** VCC a 3.3V, GND a GND. (Dirección I2C 0x76 o 0x77).
-- **Encoder EC11:** Pines A y B a GPIO 32/33. Pin C a GND. Pulsador a GPIO 27.
-- **MQ135:** VCC a 5V (Requiere 5V para el calentador), GND a GND, AOUT a GPIO 34.
+## 3. Sensores y Periféricos
+- **OLED 1.3" (SH1106):** VCC a 3.3V, I2C a 21/22.
+- **AHT20 + BMP280:** I2C a 21/22.
+- **Encoder EC11:** A 32, 33, 27.
+- **MQ135:** VCC a 5V, AOUT a 34.

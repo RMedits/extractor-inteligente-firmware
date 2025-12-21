@@ -1,6 +1,7 @@
 /*
-  Extractor Inteligente para Bano/Galeria v6.3C
+  Extractor Inteligente para Bano/Galeria v6.4C
   Hardware: ESP32 38-pin + Shield + AHT20 + BMP280 + MQ135 + OLED 1.3" (SH1106) + LEDs Estado
+  Control: Ventilador 4-Pin Delta (PWM Invertido por MOSFET Buffer + Rele Corte)
 */
 
 #include <Wire.h>
@@ -37,12 +38,17 @@ ESP32Encoder encoder;
 
 // Actuadores
 #define RELAY_PIN    23  // Corte de energia 12V
-#define FAN_PWM_PIN  14  // Senal PWM (4-pin fan)
+#define FAN_PWM_PIN  14  // Senal PWM (A traves de MOSFET Buffer)
 #define PWM_CHANNEL  0
 #define PWM_FREQUENCY 25000
 #define PWM_RESOLUTION 8
-#define PWM_MIN_VALUE 51   // ~20% Ciclo minimo
-#define PWM_MAX_VALUE 255  
+// LOGICA INVERTIDA (MOSFET BUFFER):
+// PWM 255 (100% Duty en ESP) -> MOSFET ON -> Fan Pin a GND (0V) -> 0% Speed
+// PWM 0   (0% Duty en ESP)   -> MOSFET OFF -> Fan Pin Flota (Pullup) -> 100% Speed
+// Definimos rangos invertidos para la funcion ledcWrite
+#define PWM_VAL_STOP 255     // MOSFET ON (Grounds signal) -> Fan Stop
+#define PWM_VAL_MAX  0       // MOSFET OFF (Floats signal) -> Fan Max
+#define PWM_VAL_MIN  200     // ~20% Speed (Ajustar experimentalmente)
 
 // --- LEDS DE ESTADO ---
 #define LED_RED_PIN   4     // Error / Standby
@@ -94,7 +100,7 @@ bool pauseLongPressDetected = false;
 const long debounceDelay = 250;
 const long longPressDelay = 2000;   
 
-int currentFanSpeed = 0;
+int currentFanSpeed = 0; // 0-100% logico
 bool isPaused = false;
 
 // --- PROTOTIPOS ---
@@ -129,7 +135,8 @@ void setup() {
   // Configurar PWM
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOLUTION);
   ledcAttachPin(FAN_PWM_PIN, PWM_CHANNEL);
-  ledcWrite(PWM_CHANNEL, 0);
+  // Inicializar en STOP (Logica Invertida: STOP = 255/HIGH -> MOSFET ON -> Signal LOW)
+  ledcWrite(PWM_CHANNEL, PWM_VAL_STOP);
 
   // Configurar Encoder
   ESP32Encoder::useInternalWeakPullResistors = UP;
@@ -137,7 +144,6 @@ void setup() {
   encoder.setCount(0);
   
   // Iniciar OLED SH1106
-  // Direccion 0x3C es estandar
   if(!display.begin(0x3C, true)) {
     Serial.println("OLED Fail - Blind Mode");
     oledWorking = false;
@@ -151,7 +157,7 @@ void setup() {
       display.setCursor(10, 10);
       display.println("INICIANDO");
       display.setCursor(10, 35);
-      display.println("V6.3C...");
+      display.println("V6.4C...");
       display.display();
   }
 
@@ -182,14 +188,14 @@ void setup() {
             display.printf("%ds", i);
             display.display();
         }
-        esp_task_wdt_reset(); // Reset WDT durante la espera
+        esp_task_wdt_reset();
         delay(1000);
       }
   }
 }
 
 void loop() {
-  esp_task_wdt_reset(); // Reset WDT en cada loop
+  esp_task_wdt_reset();
 
   handleControls();
   readSensors();
@@ -216,7 +222,6 @@ void updateLeds() {
             digitalWrite(LED_RED_PIN, HIGH); // Standby
         }
     } else {
-        // Fallo Critico
         digitalWrite(LED_GREEN_PIN, LOW);
         digitalWrite(LED_RED_PIN, HIGH);
     }
@@ -246,7 +251,6 @@ void handleControls() {
     pauseLongPressDetected = false;
   }
 
-  // Encoder Logic
   if (currentMode == SELECCION_TIEMPO || currentMode == SELECCION_VELOCIDAD) {
     long newPos = encoder.getCount() / 2;
     if (newPos != oldEncoderPosition) {
@@ -359,13 +363,18 @@ void controlFan(int percentage) {
   currentFanSpeed = percentage;
 
   if (percentage <= 0) {
-      // Apagado Total: Rele Abierto (OFF), PWM 0
+      // Apagado Total: Rele Abierto
       digitalWrite(RELAY_PIN, LOW);
-      ledcWrite(PWM_CHANNEL, 0);
+      // PWM a Estado STOP (Invertido: 255 -> MOSFET ON -> Pin LOW)
+      ledcWrite(PWM_CHANNEL, PWM_VAL_STOP);
   } else {
-      // Encendido: Rele Cerrado (ON), PWM Ajustado
+      // Encendido: Rele Cerrado
       digitalWrite(RELAY_PIN, HIGH);
-      int pwmValue = map(percentage, 1, 100, PWM_MIN_VALUE, PWM_MAX_VALUE);
+      // Calculo PWM Invertido: 100% -> PWM_VAL_MAX (0), 1% -> PWM_VAL_MIN (200)
+      // map(value, fromLow, fromHigh, toLow, toHigh)
+      // Entrada: 1 a 100
+      // Salida deseada: PWM_MIN_VALUE (ej 200) a PWM_MAX_VALUE (ej 0)
+      int pwmValue = map(percentage, 1, 100, PWM_VAL_MIN, PWM_VAL_MAX);
       ledcWrite(PWM_CHANNEL, pwmValue);
   }
 }
@@ -407,9 +416,13 @@ void updateDisplay() {
     display.setTextSize(2); display.setCursor(30, 25); display.println("PAUSA");
   } else if (currentMode == DEBUG_INFO) {
     display.setTextSize(1);
-    display.setCursor(0, 20); display.printf("MQ: %d | PWM: %d", airQuality, map(currentFanSpeed, 1, 100, PWM_MIN_VALUE, PWM_MAX_VALUE));
-    display.setCursor(0, 30); display.printf("BMP: %s | AHT: %s", bmpReady?"OK":"NO", ahtReady?"OK":"NO");
-    display.setCursor(0, 40); display.print("[OK] to Exit");
+    display.setCursor(0, 20); display.printf("MQ: %d", airQuality);
+    // Mostrar PWM real (invertido) para debug
+    int pwmRaw = map(currentFanSpeed, 1, 100, PWM_VAL_MIN, PWM_VAL_MAX);
+    if(currentFanSpeed <= 0) pwmRaw = PWM_VAL_STOP;
+    display.setCursor(0, 30); display.printf("PWM Raw: %d", pwmRaw);
+    display.setCursor(0, 40); display.printf("BMP: %s | AHT: %s", bmpReady?"OK":"NO", ahtReady?"OK":"NO");
+    display.setCursor(0, 50); display.print("[OK] to Exit");
   }
   display.display();
 }
