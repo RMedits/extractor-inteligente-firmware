@@ -100,6 +100,12 @@ const long longPressDelay = 2000;
 int currentFanSpeed = 0;
 bool isPaused = false;
 
+// Performance Timers
+unsigned long lastDisplayTime = 0;
+unsigned long lastSensorReadTime = 0;
+const unsigned long DISPLAY_INTERVAL = 250; // Update display at 4Hz
+const unsigned long SENSOR_INTERVAL = 2000; // Read sensors every 2s
+
 // --- PROTOTIPOS ---
 void handleControls();
 void readSensors();
@@ -183,12 +189,25 @@ void setup() {
 void loop() {
   esp_task_wdt_reset();
   handleControls();
-  readSensors();
+
+  unsigned long now = millis();
+
+  // Throttle Sensor Readings (prevent self-heating and I2C spam)
+  if (now - lastSensorReadTime > SENSOR_INTERVAL) {
+    readSensors();
+    lastSensorReadTime = now;
+  }
+
   runLogic();
   updateLeds();
   
-  if (oledWorking) updateDisplay();
-  else {
+  // Throttle Display Updates (reduce I2C traffic)
+  if (oledWorking) {
+    if (now - lastDisplayTime > DISPLAY_INTERVAL) {
+      updateDisplay();
+      lastDisplayTime = now;
+    }
+  } else {
       if (millis() % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
   }
   delay(50);
