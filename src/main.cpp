@@ -67,6 +67,12 @@ bool bmpReady = false;
 bool ahtReady = false;
 bool oledWorking = true;
 
+// Timing variables for throttling I/O
+unsigned long lastSensorReadTime = 0;
+const unsigned long sensorReadInterval = 2000;
+unsigned long lastDisplayUpdateTime = 0;
+const unsigned long displayUpdateInterval = 250;
+
 const long manualDurations[] = { 30 * 60000, 60 * 60000, 90 * 60000 };
 const char* manualDurationLabels[] = {"30 MIN", "60 MIN", "90 MIN"};
 int selectedDuration = 0;
@@ -183,13 +189,26 @@ void setup() {
 void loop() {
   esp_task_wdt_reset();
   handleControls();
-  readSensors();
-  runLogic();
+
+  unsigned long currentMillis = millis();
+
+  // Throttle Sensor Readings (Heavy I2C)
+  if (currentMillis - lastSensorReadTime >= sensorReadInterval) {
+    lastSensorReadTime = currentMillis;
+    readSensors();
+  }
+
+  runLogic(); // Logic runs every loop for button responsiveness
   updateLeds();
   
-  if (oledWorking) updateDisplay();
-  else {
-      if (millis() % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
+  // Throttle Display Updates (Heavy I2C)
+  if (oledWorking) {
+      if (currentMillis - lastDisplayUpdateTime >= displayUpdateInterval) {
+          lastDisplayUpdateTime = currentMillis;
+          updateDisplay();
+      }
+  } else {
+      if (currentMillis % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
   }
   delay(50);
 }
