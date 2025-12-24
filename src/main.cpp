@@ -1,12 +1,12 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_SSD1306.h> // USAMOS ESTA LIBRERIA PORQUE ES LA QUE FUNCIONA
 #include <Adafruit_AHTX0.h>
 #include <Adafruit_BMP280.h>
 #include <ESP32Encoder.h>
 #include <Arduino.h>
 
-// --- PINOUT DEFINITIVO (ESP32) ---
+// --- PINOUT DEFINITIVO (PANTALLA OK + LEDS SEGUROS) ---
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 22
 #define ENCODER_CLK_PIN 32
@@ -17,10 +17,13 @@
 #define MQ135_ANALOG_PIN 34
 #define RELAY_PIN 23
 #define PWM_FAN_PIN 19
-#define LED_RED_PIN 4
-#define LED_GREEN_PIN 15
 
-// --- CONFIGURACION OLED ---
+// --- LEDS EN PINES SEGUROS (LOS QUE PROBAMOS AL FINAL) ---
+#define LED_RED_PIN     18  // Rojo
+#define LED_YELLOW_PIN  5   // Amarillo
+#define LED_GREEN_PIN   17  // Verde
+
+// --- CONFIGURACION OLED SSD1306 (LA QUE FUNCIONA) ---
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
@@ -33,132 +36,115 @@ Adafruit_AHTX0 aht;
 Adafruit_BMP280 bmp;
 ESP32Encoder encoder;
 
+// Variables de estado
+bool ventiladorActivo = false;
+bool ledAmarilloState = false;
+unsigned long lastUpdate = 0;
+
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  delay(500);
 
-  Serial.println("\nIniciando sistema Extractor Inteligente...");
+  Serial.println("\n--- FUSION: PANTALLA SSD1306 + LEDS SEGUROS ---");
 
-  // Inicializar bus I2C
+  // 1. Configurar Salidas (LEDs y Relé)
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  pinMode(LED_YELLOW_PIN, OUTPUT);
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  
+  // Apagar todo al inicio
+  digitalWrite(LED_GREEN_PIN, LOW);
+  digitalWrite(LED_YELLOW_PIN, LOW);
+  digitalWrite(LED_RED_PIN, LOW);
+  digitalWrite(RELAY_PIN, LOW);
+
+  // 2. Inicializar I2C
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-  Serial.println("I2C iniciado.");
 
-  // Inicializar pantalla OLED
+  // 3. Inicializar Pantalla (CODIGO DEL USUARIO QUE FUNCIONA)
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println("Fallo al iniciar SSD1306. Verifique conexiones y direccion.");
-    pinMode(LED_RED_PIN, OUTPUT);
-    digitalWrite(LED_RED_PIN, HIGH);
-    for (;;) delay(10);
+    Serial.println("Fallo SSD1306");
+    // Parpadeo de pánico en LED Rojo si falla pantalla
+    for(;;) { digitalWrite(LED_RED_PIN, !digitalRead(LED_RED_PIN)); delay(100); }
   }
-  Serial.println("Pantalla OLED iniciada correctamente.");
-
-  // Pantalla de inicio
   display.clearDisplay();
   display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("EXTRACTOR");
-  display.println("INTELIGENTE");
-  display.setTextSize(2);
-  display.setCursor(0, 25);
-  display.println("INICIANDO");
+  display.setTextColor(SSD1306_WHITE); // Usar constante de SSD1306
+  display.setCursor(0,0);
+  display.println("SISTEMA OK");
+  display.println("SSD1306 + LEDS");
   display.display();
+  delay(1000);
 
-  // Inicializar sensor AHT20
-  if (!aht.begin()) {
-    Serial.println("Fallo al encontrar AHT20.");
-  } else {
-    Serial.println("Sensor AHT20 encontrado.");
-  }
+  // 4. Inicializar Sensores
+  if (!aht.begin()) Serial.println("Fallo AHT20");
+  if (!bmp.begin(0x77)) Serial.println("Fallo BMP280");
 
-  // Inicializar sensor BMP280 (direccion 0x77 confirmada)
-  if (!bmp.begin(0x77)) { 
-    Serial.println("Fallo al encontrar BMP280 en 0x77.");
-  } else {
-    Serial.println("Sensor BMP280 encontrado.");
-    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
-                    Adafruit_BMP280::SAMPLING_X2,
-                    Adafruit_BMP280::SAMPLING_X16,
-                    Adafruit_BMP280::FILTER_X16,
-                    Adafruit_BMP280::STANDBY_MS_500);
-  }
-
-  // Configurar encoder
+  // 5. Configurar Encoder y Botones
   encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
   encoder.setCount(0);
-  Serial.println("Encoder configurado.");
-
-  // Configurar botones
   pinMode(ENCODER_SW_PIN, INPUT_PULLUP);
   pinMode(CONFIRM_BUTTON_PIN, INPUT_PULLUP);
   pinMode(BAK_BUTTON_PIN, INPUT_PULLUP);
-  Serial.println("Botones configurados.");
-
-  // Configurar rele
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
   
-  // Configurar PWM del ventilador (25kHz, 8 bits)
-  // Nueva API ESP32 Arduino Core 3.x
-  ledcAttach(PWM_FAN_PIN, 25000, 8);
-  ledcWrite(PWM_FAN_PIN, 0);
-  Serial.println("PWM configurado.");
-
-  // Configurar LEDs indicadores
-  pinMode(LED_RED_PIN, OUTPUT);
-  pinMode(LED_GREEN_PIN, OUTPUT);
-  digitalWrite(LED_RED_PIN, LOW);
-  digitalWrite(LED_GREEN_PIN, LOW);
-  Serial.println("Actuadores y LEDs configurados.");
-
-  delay(2000);
-
-  // Pantalla de confirmacion
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(15, 10);
-  display.println("Sistema OK!");
-  display.setTextSize(2);
-  display.setCursor(25, 35);
-  display.println("LISTO!");
-  display.display();
-
-  digitalWrite(LED_GREEN_PIN, HIGH);
-  Serial.println("\n=== Sistema inicializado correctamente ===\n");
+  Serial.println("Listo para testear.");
 }
 
 void loop() {
-  // Aqui ira la logica principal del sistema
-  
-  // Por ahora, solo leer sensores cada segundo como test
-  static unsigned long lastRead = 0;
-  if (millis() - lastRead > 1000) {
-    lastRead = millis();
+  if (millis() - lastUpdate > 150) {
+    lastUpdate = millis();
+
+    // -- LECTURA DE BOTONES --
+    bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
+    bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
+    bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
+
+    // -- LOGICA DE TEST DE LUCES --
     
-    // Leer AHT20
-    sensors_event_t humidity, temp;
-    aht.getEvent(&humidity, &temp);
-    Serial.print("AHT20 - Temp: ");
-    Serial.print(temp.temperature);
-    Serial.print("C, Hum: ");
-    Serial.print(humidity.relative_humidity);
-    Serial.println("%");
+    // 1. Pulsar Encoder -> Toggle Verde y Relé (Simula Ventilador)
+    if (btnEncoder) {
+      ventiladorActivo = !ventiladorActivo;
+      digitalWrite(LED_GREEN_PIN, ventiladorActivo);
+      digitalWrite(RELAY_PIN, ventiladorActivo);
+      delay(300); // Anti-rebote simple
+    }
+
+    // 2. Pulsar Confirm (Lateral 1) -> Toggle Amarillo
+    if (btnConfirm) {
+      ledAmarilloState = !ledAmarilloState;
+      digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
+      delay(300);
+    }
+
+    // 3. Pulsar Pausa (Lateral 2) -> Rojo mientras se pulsa
+    digitalWrite(LED_RED_PIN, btnPausa);
+
+
+    // -- ACTUALIZAR PANTALLA SSD1306 --
+    // Lectura Sensores
+    sensors_event_t h, t;
+    aht.getEvent(&h, &t);
+    int mq135 = analogRead(MQ135_ANALOG_PIN);
+    long encVal = encoder.getCount() / 2;
+
+    display.clearDisplay();
+    display.setCursor(0,0);
     
-    // Leer BMP280
-    Serial.print("BMP280 - Temp: ");
-    Serial.print(bmp.readTemperature());
-    Serial.print("C, Presion: ");
-    Serial.print(bmp.readPressure() / 100.0);
-    Serial.println(" hPa");
+    // Fila 1: Temp y Humedad
+    display.print("T:"); display.print(t.temperature, 1); 
+    display.print(" H:"); display.print(h.relative_humidity, 0); display.println("%");
     
-    // Leer MQ135
-    int airQuality = analogRead(MQ135_ANALOG_PIN);
-    Serial.print("MQ135 - Calidad aire: ");
-    Serial.println(airQuality);
+    // Fila 2: MQ135 y Encoder
+    display.print("Air:"); display.print(mq135);
+    display.print(" Enc:"); display.println(encVal);
+
+    // Fila 3: Estado Botones/LEDs
+    display.println("----------------");
+    display.print("Fan(G):"); display.println(ventiladorActivo ? "ON" : "OFF");
+    display.print("Yel(C):"); display.print(ledAmarilloState ? "ON" : "OFF");
+    display.print(" Red(B):"); display.println(btnPausa ? "ON" : ".");
     
-    Serial.println("---");
+    display.display();
   }
-  
-  delay(10);
 }
