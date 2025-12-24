@@ -67,6 +67,12 @@ bool bmpReady = false;
 bool ahtReady = false;
 bool oledWorking = true;
 
+// Throttling timers
+unsigned long lastSensorReadTime = 0;
+unsigned long lastDisplayUpdateTime = 0;
+const unsigned long SENSOR_READ_INTERVAL = 2000;
+const unsigned long DISPLAY_UPDATE_INTERVAL = 250;
+
 const long manualDurations[] = { 30 * 60000, 60 * 60000, 90 * 60000 };
 const char* manualDurationLabels[] = {"30 MIN", "60 MIN", "90 MIN"};
 int selectedDuration = 0;
@@ -182,16 +188,29 @@ void setup() {
 
 void loop() {
   esp_task_wdt_reset();
+
+  // Critical fast path (Input & Logic)
   handleControls();
-  readSensors();
   runLogic();
   updateLeds();
   
-  if (oledWorking) updateDisplay();
-  else {
+  // Throttled path (Sensors)
+  if (millis() - lastSensorReadTime > SENSOR_READ_INTERVAL) {
+    readSensors();
+    lastSensorReadTime = millis();
+  }
+
+  // Throttled path (Display)
+  if (oledWorking) {
+      if (millis() - lastDisplayUpdateTime > DISPLAY_UPDATE_INTERVAL) {
+        updateDisplay();
+        lastDisplayUpdateTime = millis();
+      }
+  } else {
       if (millis() % 2000 < 100) digitalWrite(LED_RED_PIN, HIGH);
   }
-  delay(50);
+
+  delay(10); // Reduce blocking delay for better responsiveness
 }
 
 void updateLeds() {
