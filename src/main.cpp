@@ -39,7 +39,13 @@ ESP32Encoder encoder;
 // Variables de estado
 bool ventiladorActivo = false;
 bool ledAmarilloState = false;
-unsigned long lastUpdate = 0;
+
+// Variables de tiempo para control no bloqueante
+unsigned long lastDisplayUpdate = 0;
+unsigned long lastDebounceEncoder = 0;
+unsigned long lastDebounceConfirm = 0;
+const int DEBOUNCE_DELAY = 300; // Tiempo minimo entre pulsaciones
+const int DISPLAY_INTERVAL = 250; // 4Hz refresh rate
 
 void setup() {
   Serial.begin(115200);
@@ -92,36 +98,38 @@ void setup() {
 }
 
 void loop() {
-  if (millis() - lastUpdate > 150) {
-    lastUpdate = millis();
+  unsigned long currentMillis = millis();
 
-    // -- LECTURA DE BOTONES --
-    bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
-    bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
-    bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
+  // -- LECTURA DE BOTONES (NO BLOQUEANTE) --
+  // Se ejecuta en cada ciclo para máxima respuesta
+  bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
+  bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
+  bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
 
-    // -- LOGICA DE TEST DE LUCES --
-    
-    // 1. Pulsar Encoder -> Toggle Verde y Relé (Simula Ventilador)
-    if (btnEncoder) {
-      ventiladorActivo = !ventiladorActivo;
-      digitalWrite(LED_GREEN_PIN, ventiladorActivo);
-      digitalWrite(RELAY_PIN, ventiladorActivo);
-      delay(300); // Anti-rebote simple
-    }
+  // 1. Pulsar Encoder -> Toggle Verde y Relé (Simula Ventilador)
+  if (btnEncoder && (currentMillis - lastDebounceEncoder > DEBOUNCE_DELAY)) {
+    ventiladorActivo = !ventiladorActivo;
+    digitalWrite(LED_GREEN_PIN, ventiladorActivo);
+    digitalWrite(RELAY_PIN, ventiladorActivo);
+    lastDebounceEncoder = currentMillis;
+  }
 
-    // 2. Pulsar Confirm (Lateral 1) -> Toggle Amarillo
-    if (btnConfirm) {
-      ledAmarilloState = !ledAmarilloState;
-      digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
-      delay(300);
-    }
+  // 2. Pulsar Confirm (Lateral 1) -> Toggle Amarillo
+  if (btnConfirm && (currentMillis - lastDebounceConfirm > DEBOUNCE_DELAY)) {
+    ledAmarilloState = !ledAmarilloState;
+    digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
+    lastDebounceConfirm = currentMillis;
+  }
 
-    // 3. Pulsar Pausa (Lateral 2) -> Rojo mientras se pulsa
-    digitalWrite(LED_RED_PIN, btnPausa);
+  // 3. Pulsar Pausa (Lateral 2) -> Rojo mientras se pulsa
+  // Respuesta inmediata, sin toggle
+  digitalWrite(LED_RED_PIN, btnPausa);
 
 
-    // -- ACTUALIZAR PANTALLA SSD1306 --
+  // -- ACTUALIZAR PANTALLA SSD1306 (4Hz) --
+  if (currentMillis - lastDisplayUpdate > DISPLAY_INTERVAL) {
+    lastDisplayUpdate = currentMillis;
+
     // Lectura Sensores
     sensors_event_t h, t;
     aht.getEvent(&h, &t);
