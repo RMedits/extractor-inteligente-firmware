@@ -39,7 +39,17 @@ ESP32Encoder encoder;
 // Variables de estado
 bool ventiladorActivo = false;
 bool ledAmarilloState = false;
-unsigned long lastUpdate = 0;
+
+// Variables de tiempo para multithreading cooperativo
+unsigned long lastDisplayUpdate = 0;
+unsigned long lastSensorUpdate = 0;
+unsigned long lastDebounceTime = 0;
+
+// Variables globales de sensores (cacheadas)
+float tempC = 0.0;
+float humi = 0.0;
+int mq135Val = 0;
+long encVal = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -92,51 +102,63 @@ void setup() {
 }
 
 void loop() {
-  if (millis() - lastUpdate > 150) {
-    lastUpdate = millis();
+  unsigned long now = millis();
 
-    // -- LECTURA DE BOTONES --
-    bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
-    bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
-    bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
+  // -- 1. LECTURA DE BOTONES (Rápido - Sin delays) --
+  bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
+  bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
+  bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
 
-    // -- LOGICA DE TEST DE LUCES --
-    
-    // 1. Pulsar Encoder -> Toggle Verde y Relé (Simula Ventilador)
-    if (btnEncoder) {
-      ventiladorActivo = !ventiladorActivo;
-      digitalWrite(LED_GREEN_PIN, ventiladorActivo);
-      digitalWrite(RELAY_PIN, ventiladorActivo);
-      delay(300); // Anti-rebote simple
-    }
+  // Debounce no bloqueante (300ms)
+  if (now - lastDebounceTime > 300) {
+      // 1. Pulsar Encoder -> Toggle Verde y Relé
+      if (btnEncoder) {
+        ventiladorActivo = !ventiladorActivo;
+        digitalWrite(LED_GREEN_PIN, ventiladorActivo);
+        digitalWrite(RELAY_PIN, ventiladorActivo);
+        lastDebounceTime = now;
+      }
 
-    // 2. Pulsar Confirm (Lateral 1) -> Toggle Amarillo
-    if (btnConfirm) {
-      ledAmarilloState = !ledAmarilloState;
-      digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
-      delay(300);
-    }
+      // 2. Pulsar Confirm -> Toggle Amarillo
+      if (btnConfirm) {
+        ledAmarilloState = !ledAmarilloState;
+        digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
+        lastDebounceTime = now;
+      }
+  }
 
-    // 3. Pulsar Pausa (Lateral 2) -> Rojo mientras se pulsa
-    digitalWrite(LED_RED_PIN, btnPausa);
+  // 3. Pulsar Pausa (Momentáneo) -> Rojo mientras se pulsa
+  digitalWrite(LED_RED_PIN, btnPausa);
 
 
-    // -- ACTUALIZAR PANTALLA SSD1306 --
-    // Lectura Sensores
+  // -- 2. LECTURA SENSORES (Lento - 0.5Hz / 2000ms) --
+  if (now - lastSensorUpdate > 2000) {
+    lastSensorUpdate = now;
+
     sensors_event_t h, t;
     aht.getEvent(&h, &t);
-    int mq135 = analogRead(MQ135_ANALOG_PIN);
-    long encVal = encoder.getCount() / 2;
+    tempC = t.temperature;
+    humi = h.relative_humidity;
+    mq135Val = analogRead(MQ135_ANALOG_PIN);
+  }
+
+
+  // -- 3. ACTUALIZAR PANTALLA (Medio - 4Hz / 250ms) --
+  if (now - lastDisplayUpdate > 250) {
+    lastDisplayUpdate = now;
+
+    // Encoder lectura
+    encVal = encoder.getCount() / 2;
 
     display.clearDisplay();
     display.setCursor(0,0);
     
-    // Fila 1: Temp y Humedad
-    display.print("T:"); display.print(t.temperature, 1); 
-    display.print(" H:"); display.print(h.relative_humidity, 0); display.println("%");
+    // Fila 1: Temp y Humedad (Valores cacheados)
+    display.print("T:"); display.print(tempC, 1);
+    display.print(" H:"); display.print(humi, 0); display.println("%");
     
     // Fila 2: MQ135 y Encoder
-    display.print("Air:"); display.print(mq135);
+    display.print("Air:"); display.print(mq135Val);
     display.print(" Enc:"); display.println(encVal);
 
     // Fila 3: Estado Botones/LEDs
