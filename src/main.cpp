@@ -39,7 +39,18 @@ ESP32Encoder encoder;
 // Variables de estado
 bool ventiladorActivo = false;
 bool ledAmarilloState = false;
-unsigned long lastUpdate = 0;
+
+// Variables de tiempo y rebote (Bolt Optimization)
+unsigned long lastDisplayUpdate = 0;
+const unsigned long DISPLAY_INTERVAL = 150; // 150ms para actualizar pantalla y sensores
+
+unsigned long lastEncoderPress = 0;
+unsigned long lastConfirmPress = 0;
+const unsigned long DEBOUNCE_DELAY = 50; // 50ms anti-rebote no bloqueante
+
+// Estado previo de botones para detección de flancos
+bool lastBtnEncoderState = HIGH;
+bool lastBtnConfirmState = HIGH;
 
 void setup() {
   Serial.begin(115200);
@@ -92,36 +103,41 @@ void setup() {
 }
 
 void loop() {
-  if (millis() - lastUpdate > 150) {
-    lastUpdate = millis();
+  unsigned long currentMillis = millis();
 
-    // -- LECTURA DE BOTONES --
-    bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
-    bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
-    bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
+  // -- 1. LECTURA DE BOTONES (RAPIDA / SIN DELAY) --
+  // INPUT_PULLUP: LOW = Presionado, HIGH = Suelto
+  bool currBtnEncoder = digitalRead(ENCODER_SW_PIN);
+  bool currBtnConfirm = digitalRead(CONFIRM_BUTTON_PIN);
+  bool currBtnPausa   = !digitalRead(BAK_BUTTON_PIN); // Invertimos para usar como bool "presionado"
 
-    // -- LOGICA DE TEST DE LUCES --
-    
-    // 1. Pulsar Encoder -> Toggle Verde y Relé (Simula Ventilador)
-    if (btnEncoder) {
-      ventiladorActivo = !ventiladorActivo;
-      digitalWrite(LED_GREEN_PIN, ventiladorActivo);
-      digitalWrite(RELAY_PIN, ventiladorActivo);
-      delay(300); // Anti-rebote simple
-    }
+  // Logica Boton Encoder (Toggle Verde y Relé)
+  // Detectar flanco de bajada (HIGH -> LOW) y verificar debounce
+  if (currBtnEncoder == LOW && lastBtnEncoderState == HIGH && (currentMillis - lastEncoderPress > DEBOUNCE_DELAY)) {
+    ventiladorActivo = !ventiladorActivo;
+    digitalWrite(LED_GREEN_PIN, ventiladorActivo);
+    digitalWrite(RELAY_PIN, ventiladorActivo);
+    lastEncoderPress = currentMillis;
+  }
+  lastBtnEncoderState = currBtnEncoder;
 
-    // 2. Pulsar Confirm (Lateral 1) -> Toggle Amarillo
-    if (btnConfirm) {
-      ledAmarilloState = !ledAmarilloState;
-      digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
-      delay(300);
-    }
+  // Logica Boton Confirm (Toggle Amarillo)
+  if (currBtnConfirm == LOW && lastBtnConfirmState == HIGH && (currentMillis - lastConfirmPress > DEBOUNCE_DELAY)) {
+    ledAmarilloState = !ledAmarilloState;
+    digitalWrite(LED_YELLOW_PIN, ledAmarilloState);
+    lastConfirmPress = currentMillis;
+  }
+  lastBtnConfirmState = currBtnConfirm;
 
-    // 3. Pulsar Pausa (Lateral 2) -> Rojo mientras se pulsa
-    digitalWrite(LED_RED_PIN, btnPausa);
+  // Logica Boton Pausa (Directo / Momentáneo)
+  // Respuesta inmediata, sin esperar al ciclo de pantalla
+  digitalWrite(LED_RED_PIN, currBtnPausa);
 
+  // -- 2. ACTUALIZAR PANTALLA Y SENSORES (THROTTLED) --
+  // Limitamos esto a ~6.6Hz para no saturar I2C y dejar CPU libre para botones
+  if (currentMillis - lastDisplayUpdate > DISPLAY_INTERVAL) {
+    lastDisplayUpdate = currentMillis;
 
-    // -- ACTUALIZAR PANTALLA SSD1306 --
     // Lectura Sensores
     sensors_event_t h, t;
     aht.getEvent(&h, &t);
@@ -143,7 +159,7 @@ void loop() {
     display.println("----------------");
     display.print("Fan(G):"); display.println(ventiladorActivo ? "ON" : "OFF");
     display.print("Yel(C):"); display.print(ledAmarilloState ? "ON" : "OFF");
-    display.print(" Red(B):"); display.println(btnPausa ? "ON" : ".");
+    display.print(" Red(B):"); display.println(currBtnPausa ? "ON" : ".");
     
     display.display();
   }
