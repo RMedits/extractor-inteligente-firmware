@@ -61,6 +61,7 @@ void setup() {
 
   // 2. Inicializar I2C
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(400000); // Aumentar velocidad I2C a 400kHz para actualizaciones de pantalla más rápidas
 
   // 3. Inicializar Pantalla (CODIGO DEL USUARIO QUE FUNCIONA)
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
