@@ -76,7 +76,7 @@ SystemMode currentMode = MODE_AUTO;
 // Variables de Control
 int targetSpeed = 0;       // 0-255
 int currentSpeed = 0;      // Para rampas suaves (opcional)
-unsigned long timerStart = 0;
+unsigned long fanTimerStart = 0; // RENOMBRADO PARA EVITAR CONFLICTO
 unsigned long timerDuration = 0; // En milisegundos
 bool fanRunning = false;
 
@@ -97,6 +97,22 @@ int airQuality = 0;
 unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
+
+// -------------------------------------------------------------------------
+// --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
+// -------------------------------------------------------------------------
+void updateLEDs();
+void fatalError(String msg);
+void setFanSpeed(int speedPWM);
+void readSensors();
+void checkButtons();
+void runAutoLogic();
+void runManualLogic();
+void runManualSetup();
+void drawAutoScreen();
+void drawManualSetupScreen();
+void drawManualRunScreen();
+void drawPauseScreen();
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -181,7 +197,7 @@ void loop() {
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup();
+      runManualSetup(); // Faltaba implementar esta función, abajo está
       drawManualSetupScreen();
       break;
 
@@ -247,7 +263,6 @@ void readSensors() {
       sensorFailCount = 0; // Reset si leemos bien
 
       // Si estábamos en error por sensores y se recuperan, ¿volvemos a AUTO?
-      // Opcional: Recuperación automática
       if (currentMode == MODE_ERROR) {
         currentMode = MODE_AUTO;
       }
@@ -283,9 +298,15 @@ void runAutoLogic() {
   }
 }
 
+void runManualSetup() {
+  // Esta función estaba vacía/no definida, solo es lógica de UI
+  // Realmente la lógica está en checkButtons(), así que aquí no hace falta nada
+  // Pero la definimos vacía para que compile.
+}
+
 void runManualLogic() {
   // Verificar temporizador
-  if (millis() - timerStart >= timerDuration) {
+  if (millis() - fanTimerStart >= timerDuration) { // USAR fanTimerStart
     // Tiempo agotado
     currentMode = MODE_AUTO;
     setFanSpeed(0);
@@ -332,7 +353,7 @@ void checkButtons() {
         if (menuStep > 1) { // Iniciar Manual
           currentMode = MODE_MANUAL_RUN;
           timerDuration = manualTimeSel * 60000UL;
-          timerStart = millis();
+          fanTimerStart = millis(); // USAR fanTimerStart
         }
       }
     }
@@ -455,7 +476,7 @@ void drawManualRunScreen() {
   display.setCursor(0,0);
   display.print("MANUAL RUNNING");
 
-  long remaining = (timerDuration - (millis() - timerStart)) / 60000;
+  long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000; // USAR fanTimerStart
   
   display.setTextSize(2);
   display.setCursor(15, 20);
