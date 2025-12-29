@@ -40,6 +40,11 @@ ESP32Encoder encoder;
 bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorUpdate = 0;
+
+// Variables globales para sensores (caché)
+float currentTemp = 0.0;
+float currentHum = 0.0;
 
 void setup() {
   Serial.begin(115200);
@@ -61,6 +66,7 @@ void setup() {
 
   // 2. Inicializar I2C
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(400000); // Aumentar velocidad I2C a 400kHz para OLED más fluido
 
   // 3. Inicializar Pantalla (CODIGO DEL USUARIO QUE FUNCIONA)
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -78,7 +84,15 @@ void setup() {
   delay(1000);
 
   // 4. Inicializar Sensores
-  if (!aht.begin()) Serial.println("Fallo AHT20");
+  if (!aht.begin()) {
+    Serial.println("Fallo AHT20");
+  } else {
+    // Lectura inicial para evitar que la pantalla muestre 0.0 al arranque
+    sensors_event_t h, t;
+    aht.getEvent(&h, &t);
+    currentTemp = t.temperature;
+    currentHum = h.relative_humidity;
+  }
   if (!bmp.begin(0x77)) Serial.println("Fallo BMP280");
 
   // 5. Configurar Encoder y Botones
@@ -92,6 +106,18 @@ void setup() {
 }
 
 void loop() {
+  // -- LECTURA DE SENSORES (Lento: cada 2 segundos) --
+  // Optimizacion: aht.getEvent tiene un delay(80) bloqueante.
+  // Lo sacamos del loop principal de UI para no bloquear la pantalla/botones.
+  if (millis() - lastSensorUpdate > 2000) {
+    lastSensorUpdate = millis();
+    sensors_event_t h, t;
+    aht.getEvent(&h, &t);
+    currentTemp = t.temperature;
+    currentHum = h.relative_humidity;
+  }
+
+  // -- BUCLE DE UI / BOTONES (Rápido: cada 150ms) --
   if (millis() - lastUpdate > 150) {
     lastUpdate = millis();
 
@@ -122,18 +148,16 @@ void loop() {
 
 
     // -- ACTUALIZAR PANTALLA SSD1306 --
-    // Lectura Sensores
-    sensors_event_t h, t;
-    aht.getEvent(&h, &t);
+    // Lectura Sensores (Usamos valores cacheados para evitar bloqueo de 80ms)
     int mq135 = analogRead(MQ135_ANALOG_PIN);
     long encVal = encoder.getCount() / 2;
 
     display.clearDisplay();
     display.setCursor(0,0);
     
-    // Fila 1: Temp y Humedad
-    display.print("T:"); display.print(t.temperature, 1); 
-    display.print(" H:"); display.print(h.relative_humidity, 0); display.println("%");
+    // Fila 1: Temp y Humedad (Valores cacheados)
+    display.print("T:"); display.print(currentTemp, 1);
+    display.print(" H:"); display.print(currentHum, 0); display.println("%");
     
     // Fila 2: MQ135 y Encoder
     display.print("Air:"); display.print(mq135);
