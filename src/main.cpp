@@ -5,6 +5,7 @@
 #include <Adafruit_BMP280.h>
 #include <ESP32Encoder.h>
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 // -------------------------------------------------------------------------
 // --- CONFIGURACIÓN DE PINES (FINAL v7.1C - ESP32 30 PINES) ---
@@ -94,6 +95,8 @@ bool bakButtonHeld = false;
 float hum = 0, temp = 0;
 int airQuality = 0;
 unsigned long lastSensorRead = 0;
+int sensorFailCount = 0;
+const int MAX_SENSOR_FAILS = 3;
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -122,6 +125,7 @@ void setup() {
 
   // 3. Inicializar I2C y Pantalla
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(400000); // Aumentar velocidad I2C
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println("Error OLED");
     fatalError("OLED FAIL");
@@ -146,12 +150,17 @@ void setup() {
     display.display();
     digitalWrite(LED_RED_PIN, HIGH);
     delay(3000); 
-    // Continuamos aunque fallen, pero en modo error o limitado
+    // Continuamos aunque fallen, pero forzamos modo ERROR (Fail-Safe)
+    currentMode = MODE_ERROR;
   }
 
   // 5. Configurar Encoder
   encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
   encoder.setCount(0);
+
+  // 6. Watchdog Timer (8 segundos)
+  esp_task_wdt_init(8, true);
+  esp_task_wdt_add(NULL);
 
   Serial.println("Sistema Listo.");
   updateLEDs();
@@ -161,6 +170,7 @@ void setup() {
 // --- LOOP PRINCIPAL ---
 // -------------------------------------------------------------------------
 void loop() {
+  esp_task_wdt_reset(); // Alimentar al perro guardián
   readSensors();
   checkButtons();
   
@@ -187,7 +197,7 @@ void loop() {
       break;
       
     case MODE_ERROR:
-      setFanSpeed(0);
+      setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
       // Parpadeo o mensaje fijo
       break;
@@ -224,8 +234,24 @@ void readSensors() {
     
     sensors_event_t h, t;
     aht.getEvent(&h, &t);
-    hum = h.relative_humidity;
-    temp = t.temperature;
+
+    // Validación de lecturas (Fail-Safe)
+    if (isnan(h.relative_humidity) || isnan(t.temperature)) {
+      sensorFailCount++;
+      if (sensorFailCount >= MAX_SENSOR_FAILS) {
+        currentMode = MODE_ERROR;
+      }
+    } else {
+      hum = h.relative_humidity;
+      temp = t.temperature;
+      sensorFailCount = 0; // Reset si leemos bien
+
+      // Si estábamos en error por sensores y se recuperan, ¿volvemos a AUTO?
+      // Opcional: Recuperación automática
+      if (currentMode == MODE_ERROR) {
+        currentMode = MODE_AUTO;
+      }
+    }
     
     // MQ135 - Lectura simple y suavizado
     int raw = analogRead(MQ135_ANALOG_PIN);
