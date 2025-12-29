@@ -25,7 +25,8 @@
 
 // Actuadores
 #define RELAY_PIN         23  // Corte de energía (+12V)
-#define PWM_FAN_PIN       19  // Control de velocidad (Gate MOSFET) - MOVIDO AL 19 POR SEGURIDAD
+#define PWM_FAN_PIN       19  // Control de velocidad (PWM Directo)
+#define FAN_TACH_PIN      16  // Lectura de RPM (Cable Amarillo) - PREPARADO PARA FUTURO
 
 // Sensores Analógicos
 #define MQ135_ANALOG_PIN  34  // Entrada analógica (Input Only)
