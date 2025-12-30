@@ -22,7 +22,7 @@
 
 // Botones Físicos Extra
 #define CONFIRM_BUTTON_PIN 25 // Botón Lateral 1 (BACK/Cancelar)
-#define BAK_BUTTON_PIN    26  // Botón Lateral 2 (PAUSA/Emergencia - Mantener 2s)
+#define BAK_BUTTON_PIN    13  // Botón Lateral 2 (PAUSA/Emergencia) - MOVIDO AL 13 (Pin 26 dañado)
 
 // Actuadores
 #define RELAY_PIN         23  // Corte de energía (+12V)
