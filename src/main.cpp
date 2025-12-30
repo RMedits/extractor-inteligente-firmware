@@ -98,6 +98,9 @@ unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
 
+// Variables Display
+unsigned long lastDisplayUpdate = 0;
+
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
 // -------------------------------------------------------------------------
@@ -190,33 +193,59 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // 1. Ejecutar Lógica (Rápido)
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
-      // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
       break;
+  }
+
+  // 2. Actualizar Pantalla (Throttled)
+  // Menús interactivos necesitan ser más rápidos (40ms ~ 25fps), Auto/Run pueden ser más lentos (200ms ~ 5fps)
+  unsigned long interval = (currentMode == MODE_MANUAL_SETUP) ? 40 : 200;
+
+  if (millis() - lastDisplayUpdate >= interval) {
+    lastDisplayUpdate = millis();
+
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
+
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
+
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // No dibujamos nada específico en el loop original para ERROR,
+        // pero podríamos añadirlo aquí si fuera necesario.
+        break;
+    }
   }
   
   updateLEDs();
