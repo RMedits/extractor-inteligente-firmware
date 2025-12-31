@@ -58,6 +58,7 @@
 // Tiempos
 #define DEBOUNCE_DELAY    250   // ms
 #define PAUSE_HOLD_TIME   2000  // ms para activar pausa
+#define DISPLAY_REFRESH_DELAY 50 // ms (20 FPS) - Optimización Bolt
 
 // -------------------------------------------------------------------------
 // --- OBJETOS GLOBALES ---
@@ -90,6 +91,7 @@ long oldEncPos = 0;
 unsigned long lastButtonPress = 0;
 unsigned long bakButtonPressStart = 0;
 bool bakButtonHeld = false;
+unsigned long lastDisplayTime = 0; // Control de refresco OLED
 
 // Variables Sensores
 float hum = 0, temp = 0;
@@ -190,35 +192,59 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // 1. LÓGICA DE CONTROL (Ejecutar en cada ciclo)
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
-      // Ventilador apagado, esperar reanudar
+      // Ventilador apagado
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
       break;
   }
   
+  // 2. ACTUALIZACIÓN DE PANTALLA (Limitada a 20 FPS)
+  // Optimización Bolt: Evita saturar el bus I2C y mejora respuesta de botones
+  if (millis() - lastDisplayTime >= DISPLAY_REFRESH_DELAY) {
+    lastDisplayTime = millis();
+
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
+
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
+
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // No dibujar nada nuevo (mantiene último estado o mensaje de error de setup)
+        break;
+    }
+  }
+
   updateLEDs();
   delay(20); // Pequeña pausa para estabilidad
 }
