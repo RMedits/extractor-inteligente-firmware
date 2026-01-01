@@ -98,6 +98,10 @@ unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
 
+// Variables Display
+unsigned long lastDisplayUpdate = 0;
+const unsigned long DISPLAY_INTERVAL = 100; // 10 FPS (100ms) - Optimización Bolt
+
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
 // -------------------------------------------------------------------------
@@ -113,6 +117,7 @@ void drawAutoScreen();
 void drawManualSetupScreen();
 void drawManualRunScreen();
 void drawPauseScreen();
+void updateDisplayRouter();
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -187,40 +192,76 @@ void setup() {
 // -------------------------------------------------------------------------
 void loop() {
   esp_task_wdt_reset(); // Alimentar al perro guardián
+  unsigned long currentMillis = millis();
+
   readSensors();
   checkButtons();
   
+  // Ejecutar lógica de control (SIN DIBUJAR PANTALLA)
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
       break;
   }
   
   updateLEDs();
-  delay(20); // Pequeña pausa para estabilidad
+
+  // Optimización Bolt:
+  // Controlamos la actualización de la pantalla con millis() en lugar de
+  // actualizar en cada ciclo del loop (50Hz), lo cual saturaba el I2C.
+  if (currentMillis - lastDisplayUpdate >= DISPLAY_INTERVAL) {
+    lastDisplayUpdate = currentMillis;
+    updateDisplayRouter();
+  }
+
+  // Pequeña pausa para que el RTOS respire, pero mínima para no bloquear inputs
+  delay(1);
+}
+
+void updateDisplayRouter() {
+  switch (currentMode) {
+    case MODE_AUTO:
+      drawAutoScreen();
+      break;
+    case MODE_MANUAL_SETUP:
+      drawManualSetupScreen();
+      break;
+    case MODE_MANUAL_RUN:
+      drawManualRunScreen();
+      break;
+    case MODE_PAUSE:
+      drawPauseScreen();
+      break;
+    case MODE_ERROR:
+       // Error mode might need faster updates if blinking?
+       // For now 10fps is fine.
+       // Reuse auto screen layout or create specific one if needed
+       // Logic in loop() sets LED.
+       // We can just draw basic info or error message
+       display.clearDisplay();
+       display.setCursor(0,0);
+       display.println("CRITICAL ERROR");
+       display.display();
+      break;
+  }
 }
 
 // -------------------------------------------------------------------------
