@@ -58,6 +58,7 @@
 // Tiempos
 #define DEBOUNCE_DELAY    250   // ms
 #define PAUSE_HOLD_TIME   2000  // ms para activar pausa
+#define DISPLAY_UPDATE_INTERVAL 100 // ms (10 FPS)
 
 // -------------------------------------------------------------------------
 // --- OBJETOS GLOBALES ---
@@ -95,6 +96,7 @@ bool bakButtonHeld = false;
 float hum = 0, temp = 0;
 int airQuality = 0;
 unsigned long lastSensorRead = 0;
+unsigned long lastDisplayUpdate = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
 
@@ -193,23 +195,19 @@ void loop() {
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
@@ -218,9 +216,21 @@ void loop() {
       // Parpadeo o mensaje fijo
       break;
   }
+
+  // Actualizar pantalla solo si ha pasado el tiempo (Throttling)
+  if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
+    lastDisplayUpdate = millis();
+    switch (currentMode) {
+      case MODE_AUTO: drawAutoScreen(); break;
+      case MODE_MANUAL_SETUP: drawManualSetupScreen(); break;
+      case MODE_MANUAL_RUN: drawManualRunScreen(); break;
+      case MODE_PAUSE: drawPauseScreen(); break;
+      case MODE_ERROR: /* Opcional: dibujar pantalla error */ break;
+    }
+  }
   
   updateLEDs();
-  delay(20); // Pequeña pausa para estabilidad
+  // delay(20); // REMOVED: Optimización Bolt - Permitir loop libre para mejor respuesta de inputs
 }
 
 // -------------------------------------------------------------------------
