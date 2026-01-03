@@ -7,35 +7,30 @@ La correcta disposición física de los componentes es fundamental para el buen 
 La regla más importante es **separar la electrónica de potencia (12V) de la electrónica de control y sensores (3.3V/5V)**.
 
 - **Carcasa/Caja**: Se recomienda montar todo dentro de una caja de plástico.
-- **Zonas**: Crea una "Zona de Potencia" (Relé, MOSFET, 12V) y una "Zona de Control" (ESP32, Sensores).
+- **Zonas**: Crea una "Zona de Potencia" (Relé, 12V, ventilador) y una "Zona de Control" (ESP32, Sensores).
 - **GND Común**: Es obligatorio que el negativo (-) de la fuente de 12V y el GND del ESP32 estén unidos en un solo punto.
 
 ---
 
-## 2. Montaje del MOSFET FQP30N06L (Crítico)
+## 2. Conexión del Ventilador PWM (4 hilos)
 
-El MOSFET controla la velocidad del ventilador mediante PWM.
+El ventilador Delta usa cable **azul** para la señal PWM y requiere GND común.
 
-- **Ubicación de Resistencias**:
-    - **Resistencia 10kΩ (Pulldown)**: DEBE ir soldada o conectada lo más cerca posible de los pines **Gate** y **Source** del MOSFET. Esto evita que el ventilador se encienda solo por ruido estático.
-    - **Resistencia 220Ω**: Entre el pin Gate del MOSFET y el cable que viene del GPIO 19.
-- **Pinout (Visto de frente, letras hacia ti)**:
-    1. **Gate** (Izquierda) -> GPIO 19 (vía 220Ω)
-    2. **Drain** (Centro/Tab) -> Negativo del Ventilador
-    3. **Source** (Derecha) -> GND Común
-- **Disipación**: Aunque el FQP30N06L aguanta 30A, con el ventilador Delta de 2.7A se recomienda usar un pequeño disipador de aluminio TO-220 si va a funcionar por periodos largos.
+- **Cable Azul (PWM):** Conéctalo al pin **D19 (GPIO19)** del ESP32 (fila S). Mantén el cable corto para minimizar ruido.
+- **Alimentación del Ventilador:** Alimenta el cable rojo con +12V y el negro a GND. Si usas el relé KY-019 como corte principal, coloca la línea de +12V a través de COM/NO y controla el relé con **D23**.
+- **GND Común:** Une el GND del ventilador (negro) con el GND de la placa de expansión del ESP32.
 
 ---
 
-## 3. Protección con Diodo 1N5408
+## 3. Protección con Diodo 1N5408 (si usas relé)
 
-El ventilador Delta es un motor potente que genera picos de voltaje al apagarse (fuerza contraelectromotriz).
+El relé KY-019 tiene bobina y necesita un diodo de rueda libre para proteger el ESP32.
 
-- **Instalación**: El diodo debe ir en paralelo con el ventilador.
+- **Instalación**: Coloca el diodo en paralelo con la bobina del relé.
 - **Polaridad**:
-    - El lado con la **franja blanca (Cátodo)** va al cable **POSITIVO (+12V)** del ventilador.
-    - El otro lado (Ánodo) va al cable **NEGATIVO** del ventilador (el que va al Drain del MOSFET).
-- **Importancia**: Sin este diodo, el MOSFET se quemará en pocos usos.
+    - Franja blanca (Cátodo) al pin **VCC (+5V)** de la bobina.
+    - Ánodo al pin **GND** de la bobina.
+- **Importancia**: Evita picos inversos cuando el relé abre/cierra.
 
 ---
 

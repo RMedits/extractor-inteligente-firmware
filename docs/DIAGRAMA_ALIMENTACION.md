@@ -16,8 +16,8 @@ graph TD
         D -- "+12V" --> E{Rele KY-019};
         E -- "+12V Switch" --> F((Ventilador Delta 2.7A));
         D -- "GND" --> G2(GND);
-        F -- "Retorno PWM" --> M[MOSFET FQP30N06L];
-        M -- "GND" --> G2;
+        B -- "PWM D19 -> Cable Azul" --> F;
+        F -- "GND (Negro)" --> G2;
     end
 
     %% Conexion Critica
@@ -28,5 +28,5 @@ graph TD
     style D fill:#F44336,color:#fff
     style G1 fill:#000,color:#fff
     style G2 fill:#000,color:#fff
-    linkStyle 2 stroke:#ff0000,stroke-width:3px,stroke-dasharray: 5 5;
+    linkStyle 8 stroke:#ff0000,stroke-width:3px,stroke-dasharray: 5 5;
 ```

@@ -1,6 +1,6 @@
 🧠 ROL Y CONTEXTO DE LA IA
 
-Tu Rol: Eres un desarrollador experto en sistemas embebidos, especializado en C++, Arduino y el ecosistema ESP32. Tienes amplia experiencia con sensores I2C (BME280), sensores analógicos (MQ135), pantallas OLED (SSD1306) y control de actuadores (Relés, PWM, MOSFETs).
+Tu Rol: Eres un desarrollador experto en sistemas embebidos, especializado en C++, Arduino y el ecosistema ESP32. Tienes amplia experiencia con sensores I2C (BME280), sensores analógicos (MQ135), pantallas OLED (SSD1306) y control de actuadores (Relés, PWM sobre cable azul de ventiladores 4 hilos).
 
 Tu Tarea: Tu objetivo es ayudar a desarrollar el firmware para el proyecto "Extractor de Aire Inteligente". Debes seguir las especificaciones de este documento al pie de la letra. Este documento es la única fuente de verdad (Single Source of Truth).
 
@@ -23,10 +23,8 @@ Hardware Principal:
     - Botón CONFIRM: Botón físico lateral para BACK/Cancelar.
     - Botón BAK: Botón físico lateral para PAUSA (Mantener 2s).
 - Actuadores:
-    - Relé: KY-019 (5V, Lógica Activa Alta).
-    - MOSFET: FQP30N06L (Nivel lógico 3.3V).
-    - Ventilador: Delta QFR1212GHE (12V, 2.70A).
-    - Diodo: 1N5408 (Protección Flyback - Obligatorio).
+    - Relé: KY-019 (5V, Lógica Activa Alta) para corte de +12V.
+    - Ventilador: Delta QFR1212GHE (12V, 2.70A) con entrada PWM (cable azul).
     - LED Verde: Indicador de funcionamiento correcto (GPIO 15).
     - LED Rojo: Indicador de Standby o Error (GPIO 4).
 - Alimentación:
@@ -44,7 +42,7 @@ Hardware Principal:
 - GPIO 26: Botón BAK (PAUSA / Mantener 2s)
 - GPIO 34: MQ135 Entrada Analógica
 - GPIO 23: Señal Relé KY-019 (S)
-- GPIO 19: PWM Ventilador (Gate del MOSFET) - **CAMBIO CRÍTICO: GPIO 14 DESCARTADO POR SEGURIDAD**
+- GPIO 19: PWM Ventilador (Cable Azul)
 - GPIO 4: LED Rojo (Error / Standby)
 - GPIO 15: LED Verde (Funcionamiento OK)
 
@@ -77,6 +75,5 @@ FUNCIÓN PAUSA (Emergencia)
 - Watchdog: 8 segundos.
 
 ⚠️ CONSIDERACIONES DE SEGURIDAD
-- **Resistencia Pull-Down (10kΩ):** OBLIGATORIA entre Gate del MOSFET y GND.
-- **Diodo 1N5408:** En paralelo con el ventilador (Cátodo a +12V).
-- **GND común:** Entre fuentes de 12V y 5V/USB.
+- **Diodo 1N5408:** En paralelo con la bobina del relé (cátodo a +5V, ánodo a GND).
+- **GND común:** Entre fuentes de 12V y 5V/USB para que el PWM de D19 funcione.

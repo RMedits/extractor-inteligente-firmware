@@ -11,17 +11,17 @@ Usa este documento para saber qué agujero del Shield corresponde a cada funció
 | **EN** | Reset |
 | **SVP** | - |
 | **SVN** | - |
-| **P34** | **Sensor Aire MQ135** |
-| **P35** | - |
-| **P32** | **Encoder TRA** |
-| **P33** | **Encoder TRB** |
-| **P25** | **Botón BACK (Confirm)** |
-| **P26** | **Botón PAUSA (Bak)** |
-| **P27** | **Botón OK (Encoder Push)** |
-| **P14** | NO USAR (Inestable) |
-| **P12** | - |
+| **D34 (GPIO34)** | **Sensor Aire MQ135** |
+| **D35 (GPIO35)** | - |
+| **D32 (GPIO32)** | **Encoder TRA** |
+| **D33 (GPIO33)** | **Encoder TRB** |
+| **D25 (GPIO25)** | **Botón BACK (Confirm)** |
+| **D26 (GPIO26)** | **Botón PAUSA (Bak)** |
+| **D27 (GPIO27)** | **Botón OK (Encoder Push)** |
+| **D14 (GPIO14)** | NO USAR (Inestable) |
+| **D12 (GPIO12)** | - |
 | **GND** | GND |
-| **P13** | - |
+| **D13 (GPIO13)** | - |
 | **SD2** | - |
 | **SD3** | - |
 | **CMD** | - |
@@ -34,21 +34,21 @@ Usa este documento para saber qué agujero del Shield corresponde a cada funció
 | Etiqueta Shield | Función en el Proyecto |
 | :--- | :--- |
 | **GND** | GND Común |
-| **P23** | **Relé Signal** |
-| **P22** | **I2C SCL (Reloj)** |
+| **D23 (GPIO23)** | **Relé Signal** |
+| **D22 (GPIO22)** | **I2C SCL (Reloj)** |
 | **TX** | - |
 | **RX** | - |
-| **P21** | **I2C SDA (Datos)** |
+| **D21 (GPIO21)** | **I2C SDA (Datos)** |
 | **GND** | GND |
-| **P19** | **Ventilador PWM** |
-| **P18** | - |
-| **P5** | - |
-| **P17** | - |
-| **P16** | - |
-| **P4** | **LED Rojo** |
-| **P0** | - |
-| **P2** | - |
-| **P15** | **LED Verde** |
+| **D19 (GPIO19)** | **Ventilador PWM (Cable Azul)** |
+| **D18 (GPIO18)** | - |
+| **D5  (GPIO5)** | - |
+| **D17 (GPIO17)** | - |
+| **D16 (GPIO16)** | - |
+| **D4  (GPIO4)** | **LED Rojo** |
+| **D0  (GPIO0)** | - |
+| **D2  (GPIO2)** | - |
+| **D15 (GPIO15)** | **LED Verde** |
 | **SD1** | - |
 | **SD0** | - |
 | **CLK** | - |

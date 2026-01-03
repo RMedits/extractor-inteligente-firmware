@@ -5,33 +5,33 @@
 
 ---
 
-## 1. Arquitectura Elegida: Corte de Potencia Directo (Low-Side Switching)
+## 1. Arquitectura Elegida: Control PWM 4-Hilos (Cable Azul)
 
-Para este proyecto, hemos decidido estandarizar el control del ventilador utilizando una topología de **Corte de Negativo** mediante un MOSFET de Potencia.
+Para este proyecto estandarizamos el control del ventilador usando su **entrada PWM nativa** (cable azul), eliminando el MOSFET de potencia.
 
 ### **Configuración:**
-- **Actuador:** Ventilador Delta QFR1212GHE (12V, 2.70A).
-- **Driver:** MOSFET FQP30N06L (N-Channel, Logic Level).
-- **Conexión:**
-    - Drain MOSFET -> Negativo del Ventilador.
-    - Source MOSFET -> GND Común.
-    - Gate MOSFET -> GPIO 19 (vía 220Ω). *GPIO 14 descartado por seguridad*.
-- **Lógica PWM:** **DIRECTA**
-    - `PWM 0` (0%) -> MOSFET OFF -> Ventilador Apagado.
-    - `PWM 255` (100%) -> MOSFET ON -> Ventilador a Máxima Potencia.
+- **Actuador:** Ventilador Delta QFR1212GHE (12V, 2.70A) con señal PWM.
+- **Driver:** Salida de **D19 (GPIO19)** directamente al cable azul PWM.
+- **Conexiones Clave:**
+    - +12V (rojo) y GND (negro) directos desde la fuente o pasando por el relé KY-019 en la línea de +12V.
+    - Cable **PWM (azul)** -> D19 (GPIO19) del ESP32.
+    - **GND común obligatorio** entre la fuente de 12V y el ESP32 para que la señal PWM tenga referencia.
+- **Lógica PWM:**
+    - `PWM 0` (0%) -> Ventilador Apagado.
+    - `PWM 255` (100%) -> Ventilador a Máxima Potencia.
 
 ---
 
-## 2. Arquitectura Descartada: Control de Señal PWM (4-Hilos)
+## 2. Arquitectura Descartada: Corte de Potencia con MOSFET
 
-Se evaluó y **descartó** una propuesta alternativa (visible en ramas anteriores como `jules-review`) que sugería usar el cable de control PWM del ventilador con lógica invertida.
+Se retira la topología de **Low-Side Switching** con MOSFET porque el ventilador ya acepta control PWM dedicado.
 
-### **Motivos del Descarte:**
-1.  **Riesgo de Seguridad:** La lógica invertida implica que si el microcontrolador falla o se reinicia (GPIO en estado Low/Input), el ventilador podría arrancar a máxima potencia (Fail-On) dependiendo del driver. Preferimos un sistema **Fail-Off** (Si falla el control, el ventilador se apaga).
-2.  **Complejidad Innecesaria:** El control por señal requiere asegurar niveles de voltaje compatibles en el cable PWM o usar optoacopladores/transistores adicionales.
-3.  **Robustez:** El corte de potencia físico (Low-Side Switching) con el MOSFET de 30A garantiza que cuando el sistema dice "OFF", el ventilador no recibe energía, eliminando consumos parásitos o ruidos eléctricos en reposo.
+### **Motivos del Cambio:**
+1. **Menos Componentes Críticos:** Se elimina el MOSFET, resistencias y disipación asociada.
+2. **Compatibilidad Nativa:** El ventilador ofrece entrada PWM; controlar el cable azul simplifica el cableado.
+3. **Mantenimiento:** Se reduce la probabilidad de fallas por soldaduras o calentamiento en el MOSFET.
 
 ---
 
 ## 3. Conclusión
-Cualquier documentación futura o modificación de código debe respetar la lógica **PWM DIRECTA (0=OFF, 255=ON)** y el esquema de hardware de **Corte de Potencia**. No reintroducir lógica invertida sin cambiar el hardware físico.
+Cualquier documentación futura o modificación de código debe respetar la lógica **PWM DIRECTA (0=OFF, 255=ON)** aplicada sobre el **cable azul en D19**. Mantener GND común entre las fuentes de 12V y 5V/USB. Si se añade corte de energía, usar el relé KY-019 en la línea de +12V.

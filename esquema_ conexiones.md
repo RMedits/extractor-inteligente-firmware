@@ -7,18 +7,18 @@ PROYECTO: Extractor Inteligente (ESP32 38P + Shield Morada)
 
 | Etiqueta en Shield | Componente | Función |
 | :--- | :--- | :--- |
-| **P21** | Bus I2C | SDA (Datos) |
-| **P22** | Bus I2C | SCL (Reloj) |
-| **P32** | Encoder | TRA (Giro) |
-| **P33** | Encoder | TRB (Giro) |
-| **P27** | Encoder PUSH | Botón OK |
-| **P25** | Botón CONFIRM | Botón BACK |
-| **P26** | Botón BAK | Botón PAUSE (2s) |
-| **P34** | Sensor MQ135 | Salida Analógica |
-| **P23** | Relé KY-019 | Señal Control |
-| **P19** | MOSFET Gate | PWM Ventilador |
-| **P4**  | LED Rojo | Estado Error/Standby |
-| **P15** | LED Verde | Estado Funcionando |
+| **D21 (GPIO21)** | Bus I2C | SDA (Datos) |
+| **D22 (GPIO22)** | Bus I2C | SCL (Reloj) |
+| **D32 (GPIO32)** | Encoder | TRA (Giro) |
+| **D33 (GPIO33)** | Encoder | TRB (Giro) |
+| **D27 (GPIO27)** | Encoder PUSH | Botón OK |
+| **D25 (GPIO25)** | Botón CONFIRM | Botón BACK |
+| **D26 (GPIO26)** | Botón BAK | Botón PAUSE (2s) |
+| **D34 (GPIO34)** | Sensor MQ135 | Salida Analógica |
+| **D23 (GPIO23)** | Relé KY-019 | Señal Control |
+| **D19 (GPIO19)** | Cable azul Ventilador | PWM Ventilador |
+| **D4  (GPIO4)**  | LED Rojo | Estado Error/Standby |
+| **D15 (GPIO15)** | LED Verde | Estado Funcionando |
 
 ---
 
@@ -30,7 +30,6 @@ PROYECTO: Extractor Inteligente (ESP32 38P + Shield Morada)
 ---
 
 ## 3. Circuito de Potencia
-- **MOSFET Gate:** Conectar a **P19** vía resistencia 220Ω. Poner resistencia 10kΩ a GND.
-- **MOSFET Drain:** Al negativo del ventilador.
-- **MOSFET Source:** A GND.
-- **Diodo 1N5408:** En paralelo al ventilador (Cátodo al positivo).
+- **Ventilador 12V 4 Hilos:** Alimenta con +12V y GND directos; conecta el cable azul (PWM) al pin **D19 (GPIO19)**.
+- **Relé KY-019 (opcional de corte):** Alimenta con 5V y GND; controla con **D23 (GPIO23)** si quieres desconectar la línea de 12V.
+- **GND común obligatorio** entre la fuente de 12V y el ESP32 para que la señal PWM funcione.

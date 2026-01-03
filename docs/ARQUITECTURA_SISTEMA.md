@@ -7,7 +7,7 @@ graph TD
     A[Sensores Ambientales (AHT20/BMP280, MQ135)] -- Datos (Temp, Hum, Aire) --> B{ESP32};
     C[Controles de Usuario (Encoder / Botones)] -- Comandos (Giro, Pulsación) --> B;
     B -- Lógica de Control --> D{Actuadores};
-    D -- Control de Potencia --> E[Ventilador 12V];
+    D -- PWM Cable Azul --> E[Ventilador 12V (PWM)];
     F[Pantalla OLED + LEDs Estado] -- Información de Estado --> C;
     B -- Datos para Mostrar --> F;
 
@@ -21,7 +21,7 @@ graph TD
     end
 
     subgraph "Salidas"
-        D(Relé / MOSFET)
+        D(Relé + PWM)
         E
         F
     end

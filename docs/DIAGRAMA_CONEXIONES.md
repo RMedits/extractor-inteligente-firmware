@@ -13,13 +13,13 @@ Este diagrama utiliza las etiquetas serigrafiadas en la **Placa de Expansión Mo
 | :--- | :--- | :--- | :--- |
 | **GND** | GND | **G (Cualquier negro)**| GND |
 | **VCC** | VCC | **3V3 (Extremo Izq)** | 3.3V |
-| **I2C Data**| SDA | **P21** | GPIO 21 |
-| **I2C Clock**| SCL | **P22** | GPIO 22 |
-| **Encoder A**| TRA | **P32** | GPIO 32 |
-| **Encoder B**| TRB | **P33** | GPIO 33 |
-| **OK (Push)**| ENCODER_PUSH| **P27** | GPIO 27 |
-| **BACK (Lateral)**| CONFIRM | **P25** | GPIO 25 |
-| **PAUSA (Lateral)**| BAK | **P26** | GPIO 26 |
+| **I2C Data**| SDA | **D21 (Fila S)** | GPIO 21 |
+| **I2C Clock**| SCL | **D22 (Fila S)** | GPIO 22 |
+| **Encoder A**| TRA | **D32 (Fila S)** | GPIO 32 |
+| **Encoder B**| TRB | **D33 (Fila S)** | GPIO 33 |
+| **OK (Push)**| ENCODER_PUSH| **D27 (Fila S)** | GPIO 27 |
+| **BACK (Lateral)**| CONFIRM | **D25 (Fila S)** | GPIO 25 |
+| **PAUSA (Lateral)**| BAK | **D26 (Fila S)** | GPIO 26 |
 
 ---
 
@@ -30,27 +30,27 @@ Este diagrama utiliza las etiquetas serigrafiadas en la **Placa de Expansión Mo
 | :--- | :--- | :--- |
 | **Corriente**| VDD | **3V3 (Extremo Izq)** |
 | **Tierra** | GND | **G (Fila Negra)** |
-| **I2C SCL** | SCL | **P22 (Fila S)** |
-| **I2C SDA** | SDA | **P21 (Fila S)** |
+| **I2C SCL** | SCL | **D22 (Fila S, GPIO22)** |
+| **I2C SDA** | SDA | **D21 (Fila S, GPIO21)** |
 
 ### Módulo MQ135
 | Función | Pin Módulo | Etiqueta en Shield |
 | :--- | :--- | :--- |
 | **Corriente**| VCC | **V (Fila Roja - Jumper 5V)**|
 | **Tierra** | GND | **G (Fila Negra)** |
-| **Analógico**| AO / AD | **P34 (Fila S)** |
+| **Analógico**| AO / AD | **D34 (Fila S, GPIO34)** |
 
 ---
 
 ## 3. Circuito de Potencia y LEDs
 
-### Control del Ventilador (MOSFET FQP30N06L)
-- **Gate Signal:** Pin **P19** (Fila S). *GPIO 14 descartado por seguridad*.
-- **Relé KY-019 (Signal):** Pin **P23** (Fila S).
+### Control del Ventilador (PWM 4 hilos)
+- **Cable Azul (PWM):** Pin **D19 (GPIO19, Fila S)**.
+- **Relé KY-019 (Signal, si se usa corte):** Pin **D23 (GPIO23, Fila S)**.
 
 ### LEDs de Estado Externos
-- **LED Rojo (Standby/Error):** Pin **P4** (Fila S) vía resistencia 220Ω.
-- **LED Verde (Funcionamiento):** Pin **P15** (Fila S) vía resistencia 220Ω.
+- **LED Rojo (Standby/Error):** Pin **D4 (GPIO4, Fila S)** vía resistencia 220Ω.
+- **LED Verde (Funcionamiento):** Pin **D15 (GPIO15, Fila S)** vía resistencia 220Ω.
 
 ---
 

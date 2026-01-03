@@ -15,13 +15,13 @@ graph TD
         subgraph "Zona de Potencia (12V)"
             id3(Entrada Fuente 12V)
             id4(Rele KY-019)
-            id5(MOSFET FQP30N06L + Diodo 1N5408)
-            id3 --> id4 --> id5
+            id11((Ventilador Delta 12V PWM))
+            id3 --> id4 --> id11
         end
 
         %% Conexiones entre zonas
         id1 -- "GPIO 23 (Control Rele)" --> id4
-        id1 -- "GPIO 19 (PWM Fan)" --> id5
+        id1 -- "GPIO 19 (PWM Cable Azul)" --> id11
     end
 
     subgraph "Panel Frontal"
@@ -42,11 +42,10 @@ graph TD
     id1 -- "GPIO 4" --> idLEDR
     id1 -- "Bus I2C" --> id9
     id1 -- "Analog Out" --> id10
-    id5 -- "Carga de 2.7A" --> id11((Ventilador Delta 12V))
 
     %% Estilos
     style id1 fill:#4CAF50,color:#fff
-    style id4,id5 fill:#F44336,color:#fff
+    style id4,id11 fill:#F44336,color:#fff
     style id6 fill:#FF9800,color:#fff
     style id9,id10 fill:#2196F3,color:#fff
     style idLEDG fill:#4CAF50,color:#fff

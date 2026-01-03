@@ -17,20 +17,20 @@ Sistema de extracción automatizado basado en ESP32 para baño o galería, optim
 - **Microcontrolador:** ESP32-WROOM-32 (38 pines + Shield).
 - **Sensores:** Módulo Dual AHT20+BMP280 (I2C) + MQ135 (Analógico).
 - **Control:** Módulo OLED Estardyn con Encoder y 2 botones extra.
-- **Actuadores:** Relé KY-019 (Corte) + MOSFET FQP30N06L (PWM Potencia).
-- **Ventilador:** Delta QFR1212GHE (12V, 2.70A).
-- **Protección:** Diodo 1N5408 + Resistencias Pulldown.
+- **Actuadores:** Relé KY-019 (corte de alimentación) + salida PWM directa al cable azul del ventilador.
+- **Ventilador:** Delta QFR1212GHE (12V, 2.70A) con entrada PWM 4 hilos.
+- **Protección:** Diodo 1N5408 para el relé (si aplica) y GND común obligatorio.
 
 ## 📌 Pinout Resumido
-| Componente | Pin ESP32 | Función |
+| Componente | Pin ESP32 (Shield) | Función |
 | :--- | :--- | :--- |
-| **I2C** | SDA: P21 / SCL: P22 | Sensores + OLED |
-| **Encoder** | TRA: P32 / TRB: P33 / PUSH: P27 | Control Usuario |
-| **Botones** | BACK: P25 / PAUSA: P26 | Control Usuario |
-| **MQ135** | P34 | Calidad Aire (Analógico) |
-| **Relé** | P23 | Corte de Energía |
-| **MOSFET** | P19 | PWM Ventilador |
-| **LEDs** | Rojo: P4 / Verde: P15 | Estado Sistema |
+| **I2C** | SDA: D21 (GPIO21) / SCL: D22 (GPIO22) | Sensores + OLED |
+| **Encoder** | TRA: D32 (GPIO32) / TRB: D33 (GPIO33) / PUSH: D27 (GPIO27) | Control Usuario |
+| **Botones** | BACK: D25 (GPIO25) / PAUSA: D26 (GPIO26) | Control Usuario |
+| **MQ135** | D34 (GPIO34) | Calidad Aire (Analógico) |
+| **Relé** | D23 (GPIO23) | Corte de Energía |
+| **Ventilador (PWM cable azul)** | D19 (GPIO19) | Control PWM directo |
+| **LEDs** | Rojo: D4 (GPIO4) / Verde: D15 (GPIO15) | Estado Sistema |
 
 ## 💻 Instalación
 1. Clonar este repositorio.
