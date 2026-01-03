@@ -58,6 +58,7 @@
 // Tiempos
 #define DEBOUNCE_DELAY    250   // ms
 #define PAUSE_HOLD_TIME   2000  // ms para activar pausa
+#define DISPLAY_REFRESH_RATE 100 // ⚡ Bolt Optimization: Update display every 100ms (10 FPS)
 
 // -------------------------------------------------------------------------
 // --- OBJETOS GLOBALES ---
@@ -97,6 +98,9 @@ int airQuality = 0;
 unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
+
+// Performance Variables
+unsigned long lastDisplayUpdate = 0; // ⚡ Bolt Optimization: Throttle display updates
 
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
@@ -190,26 +194,23 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // ⚡ Bolt: Logic runs every loop for maximum responsiveness
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
@@ -219,6 +220,32 @@ void loop() {
       break;
   }
   
+  // ⚡ Bolt: Display updates are throttled to save CPU and I2C bandwidth
+  if (millis() - lastDisplayUpdate >= DISPLAY_REFRESH_RATE) {
+    lastDisplayUpdate = millis();
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
+
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
+
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // No drawing in error mode loop (keeps last screen or handled elsewhere)
+        break;
+    }
+  }
+
   updateLEDs();
   delay(20); // Pequeña pausa para estabilidad
 }
