@@ -98,6 +98,10 @@ unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
 
+// Variables de optimización UI
+bool displayNeedsUpdate = true;
+long lastRemaining = -1;
+
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
 // -------------------------------------------------------------------------
@@ -193,23 +197,19 @@ void loop() {
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
@@ -217,6 +217,23 @@ void loop() {
       digitalWrite(LED_RED_PIN, HIGH);
       // Parpadeo o mensaje fijo
       break;
+  }
+
+  // Optimización: Solo actualizar pantalla si hay cambios
+  if (displayNeedsUpdate) {
+    switch (currentMode) {
+      case MODE_AUTO: drawAutoScreen(); break;
+      case MODE_MANUAL_SETUP: drawManualSetupScreen(); break;
+      case MODE_MANUAL_RUN: drawManualRunScreen(); break;
+      case MODE_PAUSE: drawPauseScreen(); break;
+      case MODE_ERROR:
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.print("ERROR SISTEMA");
+        display.display();
+        break;
+    }
+    displayNeedsUpdate = false;
   }
   
   updateLEDs();
@@ -228,6 +245,7 @@ void loop() {
 // -------------------------------------------------------------------------
 
 void setFanSpeed(int speedPWM) {
+  bool oldFanRunning = fanRunning;
   // speedPWM: 0-255
   if (speedPWM > 0) {
     digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
@@ -241,6 +259,10 @@ void setFanSpeed(int speedPWM) {
     digitalWrite(RELAY_PIN, LOW); // Cortar Relé
     fanRunning = false;
     currentSpeed = 0;
+  }
+
+  if (fanRunning != oldFanRunning) {
+      displayNeedsUpdate = true;
   }
 }
 
@@ -271,6 +293,8 @@ void readSensors() {
     // MQ135 - Lectura simple y suavizado
     int raw = analogRead(MQ135_ANALOG_PIN);
     airQuality = (airQuality * 0.8) + (raw * 0.2); // Media móvil simple
+
+    displayNeedsUpdate = true; // Actualizar pantalla con nuevos datos
   }
 }
 
@@ -306,14 +330,23 @@ void runManualSetup() {
 
 void runManualLogic() {
   // Verificar temporizador
-  if (millis() - fanTimerStart >= timerDuration) { // USAR fanTimerStart
+  long elapsed = millis() - fanTimerStart;
+  if (elapsed >= timerDuration) { // USAR fanTimerStart
     // Tiempo agotado
     currentMode = MODE_AUTO;
     setFanSpeed(0);
+    displayNeedsUpdate = true;
   } else {
     // Mantener velocidad seleccionada
     int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
     setFanSpeed(pwmVal);
+
+    // Actualizar pantalla si cambia el minuto
+    long remaining = (timerDuration - elapsed) / 60000;
+    if (remaining != lastRemaining) {
+        lastRemaining = remaining;
+        displayNeedsUpdate = true;
+    }
   }
 }
 
@@ -342,6 +375,7 @@ void checkButtons() {
        manualTimeSel = 30;
     }
     oldEncPos = encVal;
+    displayNeedsUpdate = true;
   }
 
   // 2. Encoder Switch (OK / Next)
@@ -356,6 +390,7 @@ void checkButtons() {
           fanTimerStart = millis(); // USAR fanTimerStart
         }
       }
+      displayNeedsUpdate = true;
     }
   }
 
@@ -366,6 +401,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true;
     }
   }
 
@@ -384,6 +420,7 @@ void checkButtons() {
         }
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
         delay(1000); // Evitar rebotes
+        displayNeedsUpdate = true;
       }
     }
   } else {
