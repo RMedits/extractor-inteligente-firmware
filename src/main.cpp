@@ -98,6 +98,10 @@ unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
 
+// Flag de actualización de pantalla (Optimización Bolt)
+bool displayNeedsUpdate = true;
+long lastRemaining = -1;
+
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
 // -------------------------------------------------------------------------
@@ -190,33 +194,60 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // Timer check for Manual Run display update
+  if (currentMode == MODE_MANUAL_RUN) {
+     long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+     if (remaining != lastRemaining) {
+         lastRemaining = remaining;
+         displayNeedsUpdate = true;
+     }
+  }
+
+  // Always run logic (state machines)
   switch (currentMode) {
-    case MODE_AUTO:
-      runAutoLogic();
-      drawAutoScreen();
-      break;
+      case MODE_AUTO: runAutoLogic(); break;
+      case MODE_MANUAL_RUN: runManualLogic(); break;
+      case MODE_PAUSE: setFanSpeed(0); break;
+      case MODE_ERROR:
+        setFanSpeed(128);
+        digitalWrite(LED_RED_PIN, HIGH);
+        break;
+      default: break;
+  }
 
-    case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
-      break;
+  // Update Display only if needed
+  if (displayNeedsUpdate) {
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
 
-    case MODE_MANUAL_RUN:
-      runManualLogic();
-      drawManualRunScreen();
-      break;
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
 
-    case MODE_PAUSE:
-      // Ventilador apagado, esperar reanudar
-      setFanSpeed(0);
-      drawPauseScreen();
-      break;
-      
-    case MODE_ERROR:
-      setFanSpeed(128); // Fail-Safe: 50% Velocidad
-      digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
-      break;
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // En error no hay pantalla específica definida en el switch original,
+        // pero podemos mantener el comportamiento o agregar una si existiera.
+        // Originalmente solo hacía setFanSpeed y LED.
+        // Si queremos mostrar algo en pantalla, deberíamos tener drawErrorScreen().
+        // Como no existe en el código original dentro del switch (solo en setup),
+        // asumimos que la pantalla se queda con lo último o limpio.
+        // Pero espera, en setup() dibuja "ERROR SENSORES".
+        // Si entra a ERROR desde el loop, no dibuja nada específico.
+        // Vamos a dejarlo así para no cambiar comportamiento visual,
+        // salvo que `displayNeedsUpdate` previene redibujado.
+        break;
+    }
+    displayNeedsUpdate = false;
   }
   
   updateLEDs();
@@ -342,6 +373,7 @@ void checkButtons() {
        manualTimeSel = 30;
     }
     oldEncPos = encVal;
+    displayNeedsUpdate = true;
   }
 
   // 2. Encoder Switch (OK / Next)
@@ -354,7 +386,9 @@ void checkButtons() {
           currentMode = MODE_MANUAL_RUN;
           timerDuration = manualTimeSel * 60000UL;
           fanTimerStart = millis(); // USAR fanTimerStart
+          lastRemaining = -1; // Reset timer display tracker
         }
+        displayNeedsUpdate = true;
       }
     }
   }
@@ -366,6 +400,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true;
     }
   }
 
@@ -384,6 +419,7 @@ void checkButtons() {
         }
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
         delay(1000); // Evitar rebotes
+        displayNeedsUpdate = true;
       }
     }
   } else {
