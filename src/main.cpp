@@ -79,11 +79,13 @@ int currentSpeed = 0;      // Para rampas suaves (opcional)
 unsigned long fanTimerStart = 0; // RENOMBRADO PARA EVITAR CONFLICTO
 unsigned long timerDuration = 0; // En milisegundos
 bool fanRunning = false;
+bool displayNeedsUpdate = true; // Optimization flag
 
 // Variables Manual Setup
 int menuStep = 0; // 0: Tiempo, 1: Velocidad, 2: Confirmar
 int manualTimeSel = 30; // Minutos
 int manualSpeedSel = 50; // %
+long lastRemaining = -1; // Optimization for manual timer display
 
 // Variables Botones/Encoder
 long oldEncPos = 0;
@@ -193,23 +195,19 @@ void loop() {
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
@@ -219,6 +217,17 @@ void loop() {
       break;
   }
   
+  if (displayNeedsUpdate) {
+    switch (currentMode) {
+      case MODE_AUTO: drawAutoScreen(); break;
+      case MODE_MANUAL_SETUP: drawManualSetupScreen(); break;
+      case MODE_MANUAL_RUN: drawManualRunScreen(); break;
+      case MODE_PAUSE: drawPauseScreen(); break;
+      case MODE_ERROR: break;
+    }
+    displayNeedsUpdate = false;
+  }
+
   updateLEDs();
   delay(20); // Pequeña pausa para estabilidad
 }
@@ -228,6 +237,8 @@ void loop() {
 // -------------------------------------------------------------------------
 
 void setFanSpeed(int speedPWM) {
+  if (currentSpeed == speedPWM) return; // Optimization: Prevent redundant updates
+
   // speedPWM: 0-255
   if (speedPWM > 0) {
     digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
@@ -242,6 +253,7 @@ void setFanSpeed(int speedPWM) {
     fanRunning = false;
     currentSpeed = 0;
   }
+  displayNeedsUpdate = true;
 }
 
 void readSensors() {
@@ -255,7 +267,10 @@ void readSensors() {
     if (isnan(h.relative_humidity) || isnan(t.temperature)) {
       sensorFailCount++;
       if (sensorFailCount >= MAX_SENSOR_FAILS) {
-        currentMode = MODE_ERROR;
+        if (currentMode != MODE_ERROR) {
+           currentMode = MODE_ERROR;
+           displayNeedsUpdate = true;
+        }
       }
     } else {
       hum = h.relative_humidity;
@@ -266,6 +281,7 @@ void readSensors() {
       if (currentMode == MODE_ERROR) {
         currentMode = MODE_AUTO;
       }
+      displayNeedsUpdate = true;
     }
     
     // MQ135 - Lectura simple y suavizado
@@ -310,7 +326,15 @@ void runManualLogic() {
     // Tiempo agotado
     currentMode = MODE_AUTO;
     setFanSpeed(0);
+    displayNeedsUpdate = true;
   } else {
+    // Check for display update on minute change
+    long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+    if (remaining != lastRemaining) {
+        lastRemaining = remaining;
+        displayNeedsUpdate = true;
+    }
+
     // Mantener velocidad seleccionada
     int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
     setFanSpeed(pwmVal);
@@ -342,6 +366,7 @@ void checkButtons() {
        manualTimeSel = 30;
     }
     oldEncPos = encVal;
+    displayNeedsUpdate = true;
   }
 
   // 2. Encoder Switch (OK / Next)
@@ -354,6 +379,10 @@ void checkButtons() {
           currentMode = MODE_MANUAL_RUN;
           timerDuration = manualTimeSel * 60000UL;
           fanTimerStart = millis(); // USAR fanTimerStart
+          lastRemaining = -1; // Reset display timer
+          displayNeedsUpdate = true;
+        } else {
+          displayNeedsUpdate = true;
         }
       }
     }
@@ -366,6 +395,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true;
     }
   }
 
@@ -384,6 +414,7 @@ void checkButtons() {
         }
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
         delay(1000); // Evitar rebotes
+        displayNeedsUpdate = true;
       }
     }
   } else {
