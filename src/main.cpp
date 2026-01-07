@@ -72,6 +72,7 @@ ESP32Encoder encoder;
 // -------------------------------------------------------------------------
 enum SystemMode { MODE_AUTO, MODE_MANUAL_SETUP, MODE_MANUAL_RUN, MODE_PAUSE, MODE_ERROR };
 SystemMode currentMode = MODE_AUTO;
+SystemMode lastMode = MODE_AUTO; // To detect mode changes
 
 // Variables de Control
 int targetSpeed = 0;       // 0-255
@@ -97,6 +98,10 @@ int airQuality = 0;
 unsigned long lastSensorRead = 0;
 int sensorFailCount = 0;
 const int MAX_SENSOR_FAILS = 3;
+
+// Performance Optimization
+bool displayNeedsUpdate = true; // Dirty flag for rendering
+long lastRemaining = -1; // To track manual timer updates
 
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
@@ -190,37 +195,66 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // Detect Mode Change
+  if (currentMode != lastMode) {
+    displayNeedsUpdate = true;
+    lastMode = currentMode;
+  }
+
+  // Logic Loop
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
-      // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
       break;
   }
   
+  // Render Loop (Only when dirty)
+  if (displayNeedsUpdate) {
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
+
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
+
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // No screen update for error in original logic (or explicit error screen)
+        // Leaving as is to preserve behavior, or we could add drawErrorScreen()
+        break;
+    }
+    displayNeedsUpdate = false;
+  }
+
   updateLEDs();
-  delay(20); // Pequeña pausa para estabilidad
+  // delay(20) removed or reduced? No, keep for stability but main loop is now non-blocking for I2C most of the time.
+  delay(20);
 }
 
 // -------------------------------------------------------------------------
@@ -228,20 +262,24 @@ void loop() {
 // -------------------------------------------------------------------------
 
 void setFanSpeed(int speedPWM) {
+  // Guard clause: Avoid redundant I/O if speed hasn't changed
+  if (speedPWM == currentSpeed) return;
+
   // speedPWM: 0-255
   if (speedPWM > 0) {
     digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
     // Pequeño delay para asegurar que el relé cierre antes de meter PWM (opcional pero bueno)
     if (!fanRunning) { delay(50); fanRunning = true; }
     ledcWrite(PWM_CHANNEL, speedPWM);
-    currentSpeed = speedPWM;
   } else {
     ledcWrite(PWM_CHANNEL, 0);
     delay(100); // Esperar a que baje RPM
     digitalWrite(RELAY_PIN, LOW); // Cortar Relé
     fanRunning = false;
-    currentSpeed = 0;
   }
+
+  currentSpeed = speedPWM;
+  displayNeedsUpdate = true; // Visual feedback changed
 }
 
 void readSensors() {
@@ -266,6 +304,8 @@ void readSensors() {
       if (currentMode == MODE_ERROR) {
         currentMode = MODE_AUTO;
       }
+
+      displayNeedsUpdate = true; // New sensor data to display
     }
     
     // MQ135 - Lectura simple y suavizado
@@ -301,7 +341,6 @@ void runAutoLogic() {
 void runManualSetup() {
   // Esta función estaba vacía/no definida, solo es lógica de UI
   // Realmente la lógica está en checkButtons(), así que aquí no hace falta nada
-  // Pero la definimos vacía para que compile.
 }
 
 void runManualLogic() {
@@ -314,6 +353,13 @@ void runManualLogic() {
     // Mantener velocidad seleccionada
     int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
     setFanSpeed(pwmVal);
+
+    // Check if minute changed for display update
+    long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+    if (remaining != lastRemaining) {
+      lastRemaining = remaining;
+      displayNeedsUpdate = true;
+    }
   }
 }
 
@@ -342,6 +388,7 @@ void checkButtons() {
        manualTimeSel = 30;
     }
     oldEncPos = encVal;
+    displayNeedsUpdate = true; // Encoder moved
   }
 
   // 2. Encoder Switch (OK / Next)
@@ -354,7 +401,9 @@ void checkButtons() {
           currentMode = MODE_MANUAL_RUN;
           timerDuration = manualTimeSel * 60000UL;
           fanTimerStart = millis(); // USAR fanTimerStart
+          displayNeedsUpdate = true; // Mode change handled by loop, but this helps logic
         }
+        displayNeedsUpdate = true; // Step changed
       }
     }
   }
@@ -366,6 +415,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true;
     }
   }
 
@@ -378,12 +428,13 @@ void checkButtons() {
       if (millis() - bakButtonPressStart > PAUSE_HOLD_TIME) {
         // Toggle Pausa
         if (currentMode == MODE_PAUSE) {
-          currentMode = MODE_AUTO; // O volver al anterior (más complejo)
+          currentMode = MODE_AUTO;
         } else {
           currentMode = MODE_PAUSE;
         }
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
         delay(1000); // Evitar rebotes
+        displayNeedsUpdate = true;
       }
     }
   } else {
