@@ -26,7 +26,7 @@
 
 // Actuadores
 #define RELAY_PIN         23  // Corte de energía (+12V)
-#define PWM_FAN_PIN       19  // Control de velocidad (PWM Directo)
+#define PWM_FAN_PIN       19  // Control de velocidad (PWM al ventilador 4 hilos)
 #define FAN_TACH_PIN      16  // Lectura de RPM (Cable Amarillo) - PREPARADO PARA FUTURO
 
 // Sensores Analógicos

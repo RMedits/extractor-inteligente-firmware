@@ -44,13 +44,9 @@ PROYECTO: Extractor Inteligente (Shield Morada 38P)
    Fila V (5V)  ----> + (VCC)
    Fila G (GND) ----> - (GND)
 
-   [ SHIELD PIN ]     [ MOSFET FQP30N06L ]
-   --------------     --------------------
-   P19  --[220R]----> Gate (Pin 1)
-                        |
-                      [10K] (Resistencia Pulldown)
-                        |
-                       GND (Fila G)
+   [ SHIELD PIN ]     [ VENTILADOR (PWM 4 HILOS) ]
+   --------------     ---------------------------
+   P19  ------------> PWM (Cable de control)
 
 ================================================================================
 3. NOTAS CRITICAS

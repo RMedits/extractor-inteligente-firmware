@@ -21,7 +21,7 @@ graph TD
     end
 
     subgraph "Salidas"
-        D(Relé / MOSFET)
+        D(Relé / PWM Ventilador)
         E
         F
     end
