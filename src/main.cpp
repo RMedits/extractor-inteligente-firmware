@@ -88,6 +88,7 @@ int manualSpeedSel = 50; // %
 // Variables Botones/Encoder
 long oldEncPos = 0;
 unsigned long lastButtonPress = 0;
+bool displayNeedsUpdate = true; // Optimization: Only redraw when needed
 unsigned long bakButtonPressStart = 0;
 bool bakButtonHeld = false;
 
@@ -193,23 +194,23 @@ void loop() {
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
+      if (displayNeedsUpdate) drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      if (displayNeedsUpdate) drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
+      if (displayNeedsUpdate) drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
+      if (displayNeedsUpdate) drawPauseScreen();
       break;
       
     case MODE_ERROR:
@@ -218,6 +219,7 @@ void loop() {
       // Parpadeo o mensaje fijo
       break;
   }
+  displayNeedsUpdate = false;
   
   updateLEDs();
   delay(20); // Pequeña pausa para estabilidad
@@ -229,6 +231,10 @@ void loop() {
 
 void setFanSpeed(int speedPWM) {
   // speedPWM: 0-255
+
+  // Optimization: Don't do anything if speed is already set
+  if (currentSpeed == speedPWM) return;
+
   if (speedPWM > 0) {
     digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
     // Pequeño delay para asegurar que el relé cierre antes de meter PWM (opcional pero bueno)
@@ -242,6 +248,7 @@ void setFanSpeed(int speedPWM) {
     fanRunning = false;
     currentSpeed = 0;
   }
+  displayNeedsUpdate = true;
 }
 
 void readSensors() {
@@ -271,6 +278,8 @@ void readSensors() {
     // MQ135 - Lectura simple y suavizado
     int raw = analogRead(MQ135_ANALOG_PIN);
     airQuality = (airQuality * 0.8) + (raw * 0.2); // Media móvil simple
+
+    displayNeedsUpdate = true;
   }
 }
 
@@ -305,12 +314,22 @@ void runManualSetup() {
 }
 
 void runManualLogic() {
+  long elapsed = millis() - fanTimerStart;
   // Verificar temporizador
-  if (millis() - fanTimerStart >= timerDuration) { // USAR fanTimerStart
+  if (elapsed >= timerDuration) { // USAR fanTimerStart
     // Tiempo agotado
     currentMode = MODE_AUTO;
     setFanSpeed(0);
+    displayNeedsUpdate = true;
   } else {
+    // Check if minute changed for display
+    long remaining = (timerDuration - elapsed) / 60000;
+    static long lastRemaining = -1;
+    if (remaining != lastRemaining) {
+      lastRemaining = remaining;
+      displayNeedsUpdate = true;
+    }
+
     // Mantener velocidad seleccionada
     int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
     setFanSpeed(pwmVal);
@@ -342,6 +361,7 @@ void checkButtons() {
        manualTimeSel = 30;
     }
     oldEncPos = encVal;
+    displayNeedsUpdate = true;
   }
 
   // 2. Encoder Switch (OK / Next)
@@ -355,6 +375,7 @@ void checkButtons() {
           timerDuration = manualTimeSel * 60000UL;
           fanTimerStart = millis(); // USAR fanTimerStart
         }
+        displayNeedsUpdate = true;
       }
     }
   }
@@ -366,6 +387,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true;
     }
   }
 
@@ -383,6 +405,7 @@ void checkButtons() {
           currentMode = MODE_PAUSE;
         }
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
+        displayNeedsUpdate = true;
         delay(1000); // Evitar rebotes
       }
     }
