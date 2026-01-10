@@ -15,7 +15,7 @@ graph TD
         subgraph "Zona de Potencia (12V)"
             id3(Entrada Fuente 12V)
             id4(Rele KY-019)
-            id5(MOSFET FQP30N06L + Diodo 1N5408)
+            id5(Ventilador + Diodo 1N5408)
             id3 --> id4 --> id5
         end
 

@@ -16,8 +16,7 @@ graph TD
         D -- "+12V" --> E{Rele KY-019};
         E -- "+12V Switch" --> F((Ventilador Delta 2.7A));
         D -- "GND" --> G2(GND);
-        F -- "Retorno PWM" --> M[MOSFET FQP30N06L];
-        M -- "GND" --> G2;
+        F -- "Control PWM (GPIO 19)" --> B;
     end
 
     %% Conexion Critica

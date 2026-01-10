@@ -44,8 +44,8 @@ Este diagrama utiliza las etiquetas serigrafiadas en la **Placa de Expansión Mo
 
 ## 3. Circuito de Potencia y LEDs
 
-### Control del Ventilador (MOSFET FQP30N06L)
-- **Gate Signal:** Pin **P19** (Fila S). *GPIO 14 descartado por seguridad*.
+### Control del Ventilador (PWM 4 Hilos)
+- **PWM Ventilador:** Pin **P19** (Fila S). *GPIO 14 descartado por seguridad*.
 - **Relé KY-019 (Signal):** Pin **P23** (Fila S).
 
 ### LEDs de Estado Externos

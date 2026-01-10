@@ -17,7 +17,7 @@ Sistema de extracción automatizado basado en ESP32 para baño o galería, optim
 - **Microcontrolador:** ESP32-WROOM-32 (38 pines + Shield).
 - **Sensores:** Módulo Dual AHT20+BMP280 (I2C) + MQ135 (Analógico).
 - **Control:** Módulo OLED Estardyn con Encoder y 2 botones extra.
-- **Actuadores:** Relé KY-019 (Corte) + MOSFET FQP30N06L (PWM Potencia).
+- **Actuadores:** Relé KY-019 (Corte) + Control PWM directo del ventilador (4 hilos).
 - **Ventilador:** Delta QFR1212GHE (12V, 2.70A).
 - **Protección:** Diodo 1N5408 + Resistencias Pulldown.
 
@@ -29,7 +29,7 @@ Sistema de extracción automatizado basado en ESP32 para baño o galería, optim
 | **Botones** | BACK: P25 / PAUSA: P26 | Control Usuario |
 | **MQ135** | P34 | Calidad Aire (Analógico) |
 | **Relé** | P23 | Corte de Energía |
-| **MOSFET** | P19 | PWM Ventilador |
+| **PWM Ventilador** | P19 | Señal PWM (4 hilos) |
 | **LEDs** | Rojo: P4 / Verde: P15 | Estado Sistema |
 
 ## 💻 Instalación

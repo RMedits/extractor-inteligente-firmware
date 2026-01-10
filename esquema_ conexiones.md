@@ -16,7 +16,7 @@ PROYECTO: Extractor Inteligente (ESP32 38P + Shield Morada)
 | **P26** | Botón BAK | Botón PAUSE (2s) |
 | **P34** | Sensor MQ135 | Salida Analógica |
 | **P23** | Relé KY-019 | Señal Control |
-| **P19** | MOSFET Gate | PWM Ventilador |
+| **P19** | PWM Ventilador | Señal PWM (4 hilos) |
 | **P4**  | LED Rojo | Estado Error/Standby |
 | **P15** | LED Verde | Estado Funcionando |
 
@@ -30,7 +30,6 @@ PROYECTO: Extractor Inteligente (ESP32 38P + Shield Morada)
 ---
 
 ## 3. Circuito de Potencia
-- **MOSFET Gate:** Conectar a **P19** vía resistencia 220Ω. Poner resistencia 10kΩ a GND.
-- **MOSFET Drain:** Al negativo del ventilador.
-- **MOSFET Source:** A GND.
+- **Relé (Corte de +12V):** COM a +12V fuente y NO al + del ventilador.
+- **Ventilador (PWM 4 hilos):** La señal PWM va directa desde **P19** al cable PWM del ventilador.
 - **Diodo 1N5408:** En paralelo al ventilador (Cátodo al positivo).

@@ -5,33 +5,24 @@
 
 ---
 
-## 1. Arquitectura Elegida: Corte de Potencia Directo (Low-Side Switching)
+## 1. Arquitectura Elegida: Control PWM Directo (Ventilador 4 Hilos)
 
-Para este proyecto, hemos decidido estandarizar el control del ventilador utilizando una topología de **Corte de Negativo** mediante un MOSFET de Potencia.
+Para este proyecto, estandarizamos el control de velocidad utilizando la **línea PWM dedicada del ventilador (4 hilos)**. El relé solo se usa para cortar o dar alimentación al ventilador.
 
 ### **Configuración:**
 - **Actuador:** Ventilador Delta QFR1212GHE (12V, 2.70A).
-- **Driver:** MOSFET FQP30N06L (N-Channel, Logic Level).
-- **Conexión:**
-    - Drain MOSFET -> Negativo del Ventilador.
-    - Source MOSFET -> GND Común.
-    - Gate MOSFET -> GPIO 19 (vía 220Ω). *GPIO 14 descartado por seguridad*.
+- **Control PWM:** GPIO 19 directo al cable PWM del ventilador. *GPIO 14 descartado por seguridad*.
 - **Lógica PWM:** **DIRECTA**
-    - `PWM 0` (0%) -> MOSFET OFF -> Ventilador Apagado.
-    - `PWM 255` (100%) -> MOSFET ON -> Ventilador a Máxima Potencia.
+    - `PWM 0` (0%) -> Ventilador detenido.
+    - `PWM 255` (100%) -> Ventilador a máxima potencia.
 
 ---
 
-## 2. Arquitectura Descartada: Control de Señal PWM (4-Hilos)
+## 2. Arquitectura Descartada: Corte de Potencia con MOSFET
 
-Se evaluó y **descartó** una propuesta alternativa (visible en ramas anteriores como `jules-review`) que sugería usar el cable de control PWM del ventilador con lógica invertida.
-
-### **Motivos del Descarte:**
-1.  **Riesgo de Seguridad:** La lógica invertida implica que si el microcontrolador falla o se reinicia (GPIO en estado Low/Input), el ventilador podría arrancar a máxima potencia (Fail-On) dependiendo del driver. Preferimos un sistema **Fail-Off** (Si falla el control, el ventilador se apaga).
-2.  **Complejidad Innecesaria:** El control por señal requiere asegurar niveles de voltaje compatibles en el cable PWM o usar optoacopladores/transistores adicionales.
-3.  **Robustez:** El corte de potencia físico (Low-Side Switching) con el MOSFET de 30A garantiza que cuando el sistema dice "OFF", el ventilador no recibe energía, eliminando consumos parásitos o ruidos eléctricos en reposo.
+Se descarta el uso de un MOSFET de potencia para modular el ventilador. El control de velocidad se realiza por el cable PWM del propio ventilador, y el relé queda únicamente para ON/OFF de alimentación.
 
 ---
 
 ## 3. Conclusión
-Cualquier documentación futura o modificación de código debe respetar la lógica **PWM DIRECTA (0=OFF, 255=ON)** y el esquema de hardware de **Corte de Potencia**. No reintroducir lógica invertida sin cambiar el hardware físico.
+Cualquier documentación futura o modificación de código debe respetar la lógica **PWM DIRECTA (0=OFF, 255=ON)** y el esquema de hardware con **PWM directo al ventilador + relé de corte de alimentación**.

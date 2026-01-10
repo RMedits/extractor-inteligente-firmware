@@ -23,7 +23,7 @@ Dedicado exclusivamente al ventilador de alta potencia.
 Es la unión física de los polos negativos (-) de ambas fuentes (5V y 12V).
 
 ### ¿Por qué es obligatorio?
-El ESP32 controla el MOSFET mediante una señal de 3.3V. Si el MOSFET (circuito de 12V) no comparte el mismo "suelo" (referencia de 0V) que el ESP32, la señal PWM no funcionará y el ventilador no girará o lo hará de forma errática.
+El ESP32 controla el ventilador mediante una señal PWM de 3.3V. Si el circuito de 12V no comparte el mismo "suelo" (referencia de 0V) que el ESP32, la señal PWM no funcionará y el ventilador no girará o lo hará de forma errática.
 
 ### ¿Cómo conectarlo?
 **Conecta un cable desde el polo negativo (-) de la fuente de 12V a cualquier pin GND de la placa de expansión del ESP32.**
