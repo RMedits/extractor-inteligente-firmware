@@ -74,6 +74,7 @@ enum SystemMode { MODE_AUTO, MODE_MANUAL_SETUP, MODE_MANUAL_RUN, MODE_PAUSE, MOD
 SystemMode currentMode = MODE_AUTO;
 
 // Variables de Control
+bool displayNeedsUpdate = true;
 int targetSpeed = 0;       // 0-255
 int currentSpeed = 0;      // Para rampas suaves (opcional)
 unsigned long fanTimerStart = 0; // RENOMBRADO PARA EVITAR CONFLICTO
@@ -190,33 +191,55 @@ void loop() {
   readSensors();
   checkButtons();
   
+  // 1. Run Logic (Always)
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
-      runManualSetup(); // Faltaba implementar esta función, abajo está
-      drawManualSetupScreen();
+      runManualSetup();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
       break;
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(128); // Fail-Safe: 50% Velocidad
       digitalWrite(LED_RED_PIN, HIGH);
-      // Parpadeo o mensaje fijo
       break;
+  }
+
+  // 2. Update Display (Conditional)
+  if (displayNeedsUpdate) {
+    switch (currentMode) {
+      case MODE_AUTO:
+        drawAutoScreen();
+        break;
+
+      case MODE_MANUAL_SETUP:
+        drawManualSetupScreen();
+        break;
+
+      case MODE_MANUAL_RUN:
+        drawManualRunScreen();
+        break;
+
+      case MODE_PAUSE:
+        drawPauseScreen();
+        break;
+
+      case MODE_ERROR:
+        // Parpadeo o mensaje fijo si fuera necesario
+        break;
+    }
+    displayNeedsUpdate = false;
   }
   
   updateLEDs();
@@ -228,6 +251,11 @@ void loop() {
 // -------------------------------------------------------------------------
 
 void setFanSpeed(int speedPWM) {
+  // Check for changes
+  if (currentSpeed != speedPWM) displayNeedsUpdate = true;
+  if (speedPWM > 0 && !fanRunning) displayNeedsUpdate = true;
+  if (speedPWM == 0 && fanRunning) displayNeedsUpdate = true;
+
   // speedPWM: 0-255
   if (speedPWM > 0) {
     digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
@@ -247,6 +275,7 @@ void setFanSpeed(int speedPWM) {
 void readSensors() {
   if (millis() - lastSensorRead > 2000) { // Leer cada 2 segundos
     lastSensorRead = millis();
+    displayNeedsUpdate = true; // Data changed
     
     sensors_event_t h, t;
     aht.getEvent(&h, &t);
@@ -306,14 +335,24 @@ void runManualSetup() {
 
 void runManualLogic() {
   // Verificar temporizador
+  static long lastRemaining = -1;
+
   if (millis() - fanTimerStart >= timerDuration) { // USAR fanTimerStart
     // Tiempo agotado
     currentMode = MODE_AUTO;
     setFanSpeed(0);
+    displayNeedsUpdate = true; // Mode change
   } else {
     // Mantener velocidad seleccionada
     int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
     setFanSpeed(pwmVal);
+
+    // Check for timer update
+    long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+    if (remaining != lastRemaining) {
+       lastRemaining = remaining;
+       displayNeedsUpdate = true;
+    }
   }
 }
 
@@ -325,6 +364,7 @@ void checkButtons() {
   // 1. Encoder Rotativo (Navegación)
   long encVal = encoder.getCount() / 2;
   if (encVal != oldEncPos) {
+    displayNeedsUpdate = true; // Navigation update
     if (currentMode == MODE_MANUAL_SETUP) {
       if (menuStep == 0) { // Tiempo
         if (encVal > oldEncPos) manualTimeSel += 15; else manualTimeSel -= 15;
@@ -350,6 +390,7 @@ void checkButtons() {
       lastButtonPress = millis();
       if (currentMode == MODE_MANUAL_SETUP) {
         menuStep++;
+        displayNeedsUpdate = true; // Next step
         if (menuStep > 1) { // Iniciar Manual
           currentMode = MODE_MANUAL_RUN;
           timerDuration = manualTimeSel * 60000UL;
@@ -366,6 +407,7 @@ void checkButtons() {
       // Volver siempre a AUTO
       currentMode = MODE_AUTO;
       menuStep = 0;
+      displayNeedsUpdate = true; // Mode change
     }
   }
 
@@ -382,6 +424,7 @@ void checkButtons() {
         } else {
           currentMode = MODE_PAUSE;
         }
+        displayNeedsUpdate = true; // Mode change
         bakButtonHeld = false; // Reset para obligar a soltar y volver a pulsar
         delay(1000); // Evitar rebotes
       }
