@@ -141,6 +141,10 @@ void drawManualSetupScreen();
 void drawManualRunScreen();
 void drawManualInfiniteScreen();
 void drawPauseScreen();
+void drawAnimatedTitle(const char* title);
+void drawBlinkingDivider(int y);
+void drawSpeedBar(int percent, int y);
+void drawAirQualityStatus(int y);
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -608,79 +612,173 @@ void fatalError(String msg) {
 // --- PANTALLAS OLED ---
 // -------------------------------------------------------------------------
 
+void drawAnimatedTitle(const char* title) {
+  static unsigned long animationTime = 0;
+  static int scrollPos = 0;
+
+  if (millis() - animationTime > 500) {
+    animationTime = millis();
+    scrollPos = (scrollPos + 1) % 5;
+  }
+
+  display.setTextSize(1);
+  display.setCursor(scrollPos, 0);
+  display.print(title);
+}
+
+void drawBlinkingDivider(int y) {
+  static unsigned long lineBlinkTime = 0;
+  static bool lineVisible = true;
+
+  if (millis() - lineBlinkTime > 600) {
+    lineBlinkTime = millis();
+    lineVisible = !lineVisible;
+  }
+
+  display.setCursor(0, y);
+  for (int i = 0; i < 21; i++) {
+    display.print(lineVisible ? "-" : " ");
+  }
+}
+
+void drawSpeedBar(int percent, int y) {
+  percent = constrain(percent, 0, 100);
+  int barFill = map(percent, 0, 100, 0, 18);
+
+  display.setTextSize(1);
+  display.setCursor(0, y);
+  display.print("[");
+  for (int i = 0; i < barFill; i++) display.print((char)254);
+  for (int i = barFill; i < 18; i++) display.print((char)176);
+  display.print("]");
+  display.print(percent);
+  display.print("%");
+}
+
+void drawAirQualityStatus(int y) {
+  display.setCursor(0, y);
+  display.print("Aire: ");
+
+  if (mq135_warmed) {
+    if (airQuality < 300) {
+      display.print("BUENA   ");
+      display.print("[*_*]");
+    } else if (airQuality < 600) {
+      display.print("REGULAR ");
+      display.print("[-_-]");
+    } else if (airQuality < 900) {
+      display.print("MALA    ");
+      display.print("[o_o]");
+    } else {
+      display.print("CRITICA ");
+      display.print("[X_X]");
+    }
+  } else {
+    display.print("CALENT. [...]");
+  }
+}
+
 void drawAutoScreen() {
   display.clearDisplay();
-  
-  // Header
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("AUTO MODE");
-  
-  // Icono o estado fan
-  display.setCursor(80,0);
-  display.print(fanRunning ? "FAN:ON" : "STBY");
 
-  // Datos Grandes
-  display.setTextSize(2);
-  display.setCursor(0, 15);
-  display.print(hum, 0); display.print("% ");
-  display.setCursor(64, 15);
-  display.print(temp, 0); display.print("C");
+  drawAnimatedTitle("EXTRACTOR AUTO");
+  drawBlinkingDivider(10);
 
-  // Datos Secundarios
   display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.print("Air Q: "); display.print(airQuality);
-  
-  // Footer
-  display.setCursor(0, 55);
-  display.print("Gire -> Manual");
-  
+  display.setCursor(0, 20);
+  display.print("[AUTO] ");
+  display.print(fanRunning ? "VENT ON" : "STBY");
+
+  int autoPercent = map(currentSpeed, 0, 255, 0, 100);
+  drawSpeedBar(autoPercent, 32);
+
+  display.setCursor(0, 42);
+  display.print((char)42);
+  display.print(" T:");
+  display.print((int)temp);
+  display.print((char)167);
+  display.print(" H:");
+  display.print((int)hum);
+  display.print("%");
+
+  drawAirQualityStatus(52);
+
   display.display();
 }
 
 void drawManualSetupScreen() {
   display.clearDisplay();
+
+  drawAnimatedTitle("CONFIG MANUAL");
+  drawBlinkingDivider(10);
+
   display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("CONFIG MANUAL");
-  
-  display.setCursor(10, 15);
-  display.print(menuStep == 0 ? "> Tiempo: " : "  Tiempo: ");
-  display.print(manualTimeSel); display.println(" min");
-  
-  display.setCursor(10, 25);
-  display.print(menuStep == 1 ? "> Veloc:  " : "  Veloc:  ");
-  display.print(manualSpeedSel); display.println(" %");
-  
-  display.setCursor(10, 35);
-  display.print(menuStep == 2 ? "> Modo:   " : "  Modo:   ");
-  display.println(manualInfiniteSelected ? "Infinito" : "Limitado");
+  display.setCursor(0, 20);
+  display.print("[SETUP] PASO ");
+  display.print(menuStep + 1);
+  display.print("/4");
 
-  display.setCursor(10, 45);
-  display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
-  display.println(manualNightModeSelected ? "SI" : "NO");
+  int setupPercent = (menuStep + 1) * 25;
+  drawSpeedBar(setupPercent, 32);
 
-  display.setCursor(0, 60);
-  display.print("Click=OK Back=Auto");
+  display.setCursor(0, 42);
+  display.print((char)42);
+  display.print(" T:");
+  display.print((int)temp);
+  display.print((char)167);
+  display.print(" H:");
+  display.print((int)hum);
+  display.print("%");
+
+  display.setCursor(0, 52);
+  if (menuStep == 0) {
+    display.print("Tiempo: ");
+    display.print(manualTimeSel);
+    display.print(" min");
+  } else if (menuStep == 1) {
+    display.print("Veloc: ");
+    display.print(manualSpeedSel);
+    display.print("%");
+  } else if (menuStep == 2) {
+    display.print("Modo: ");
+    display.print(manualInfiniteSelected ? "Infinito" : "Limitado");
+  } else {
+    display.print("Noche: ");
+    display.print(manualNightModeSelected ? "SI" : "NO");
+  }
+
   display.display();
 }
 
 void drawManualRunScreen() {
   display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("MANUAL RUNNING");
 
-  long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000; // USAR fanTimerStart
-  
-  display.setTextSize(2);
-  display.setCursor(15, 20);
-  display.print(remaining); display.print(" min");
-  
+  drawAnimatedTitle("EXTRACTOR MANUAL");
+  drawBlinkingDivider(10);
+
   display.setTextSize(1);
-  display.setCursor(30, 45);
-  display.print("Vel: "); display.print(manualSpeedSel); display.print("% ");
+  display.setCursor(0, 20);
+  display.print("[MANUAL] EN MARCHA");
+
+  drawSpeedBar(manualSpeedSel, 32);
+
+  display.setCursor(0, 42);
+  display.print((char)42);
+  display.print(" T:");
+  display.print((int)temp);
+  display.print((char)167);
+  display.print(" H:");
+  display.print((int)hum);
+  display.print("%");
+
+  long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+  if (remaining < 0) {
+    remaining = 0;
+  }
+  display.setCursor(0, 52);
+  display.print("Restan: ");
+  display.print(remaining);
+  display.print(" min");
 
   display.display();
 }
@@ -688,99 +786,55 @@ void drawManualRunScreen() {
 void drawManualInfiniteScreen() {
   // Pantalla Dashboard para modo manual infinito
   display.clearDisplay();
-  
-  // Animación de título: "EXTRACTOR TUNEADO" con efecto de deslizamiento suave
-  static unsigned long animationTime = 0;
-  static int scrollPos = 0;
-  
-  // Cambiar posición cada 500ms (más lento = más elegante)
-  if (millis() - animationTime > 500) {
-    animationTime = millis();
-    scrollPos = (scrollPos + 1) % 5; // 5 posiciones de scroll
-  }
-  
-  // Título principal con efecto de desplazamiento - "EXTRACTOR TUNEADO BY RAUL"
+
+  drawAnimatedTitle("EXTRACTOR TUNEADO BY RAUL");
+  drawBlinkingDivider(10);
+
   display.setTextSize(1);
-  display.setCursor(scrollPos, 0);
-  display.print("EXTRACTOR TUNEADO BY RAUL");
-  
-  // Línea divisoria animada (parpadea suavemente)
-  display.setCursor(0, 10);
-  static unsigned long lineBlinkTime = 0;
-  static bool lineVisible = true;
-  
-  if (millis() - lineBlinkTime > 600) {
-    lineBlinkTime = millis();
-    lineVisible = !lineVisible;
-  }
-  
-  if (lineVisible) {
-    for (int i = 0; i < 21; i++) display.print("-");
-  } else {
-    for (int i = 0; i < 21; i++) display.print(" ");
-  }
-  
-  // Modo infinito debajo del título
   display.setCursor(0, 20);
   display.print("[");
   display.print((char)236);  // ∞ Infinito
   display.print("] MANUAL INFINITO");
-  
-  // Barra de velocidad con % a la derecha
-  display.setTextSize(1);
-  int barFill = map(manualSpeedSel, 0, 100, 0, 18);
-  display.setCursor(0, 32);
-  display.print("[");
-  for (int i = 0; i < barFill; i++) display.print((char)254);      // █ Lleno
-  for (int i = barFill; i < 18; i++) display.print((char)176);     // ░ Vacío
-  display.print("]");
-  display.print(manualSpeedSel);
-  display.print("%");
-  
-  // Info sensores: Temperatura, Humedad
+
+  drawSpeedBar(manualSpeedSel, 32);
+
   display.setCursor(0, 42);
-  display.print((char)42); display.print(" ");  // ★
-  display.print("T:");
+  display.print((char)42);
+  display.print(" T:");
   display.print((int)temp);
-  display.print((char)167);  // °
+  display.print((char)167);
   display.print(" H:");
   display.print((int)hum);
   display.print("%");
-  
-  // Indicadores ASCII de Calidad del Aire en la línea donde estaba "BY RAUL"
-  // Representan: BUENA / REGULAR / MALA / CRÍTICA
-  display.setCursor(0, 52);
-  display.print("Aire: ");
-  
-  // Emoji ASCII compuesto según calidad
-  if (mq135_warmed) {
-    if (airQuality < 300) {
-      display.print("BUENA   ");
-      display.print("[*_*]"); // Sonrisa feliz
-    } else if (airQuality < 600) {
-      display.print("REGULAR ");
-      display.print("[-_-]"); // Cara neutral
-    } else if (airQuality < 900) {
-      display.print("MALA    ");
-      display.print("[o_o]"); // Sorpresa/Preocupación
-    } else {
-      display.print("CRITICA ");
-      display.print("[X_X]"); // Alarma crítica
-    }
-  } else {
-    display.print("CALENT. [...]");
-  }
+
+  drawAirQualityStatus(52);
   
   display.display();
 }
 
 void drawPauseScreen() {
   display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 20);
-  display.print("PAUSADO");
+
+  drawAnimatedTitle("EXTRACTOR PAUSA");
+  drawBlinkingDivider(10);
+
   display.setTextSize(1);
-  display.setCursor(10, 45);
+  display.setCursor(0, 20);
+  display.print("[PAUSA] SISTEMA");
+
+  drawSpeedBar(0, 32);
+
+  display.setCursor(0, 42);
+  display.print((char)42);
+  display.print(" T:");
+  display.print((int)temp);
+  display.print((char)167);
+  display.print(" H:");
+  display.print((int)hum);
+  display.print("%");
+
+  display.setCursor(0, 52);
   display.print("Mantener btn PAUSA");
+
   display.display();
 }
