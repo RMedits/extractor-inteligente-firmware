@@ -120,6 +120,9 @@ bool mq135_warmed = false;
 int mq135_baseline = 400;           // Baseline inicial (aire relativo limpio)
 unsigned long oledLastActivity = 0; // Timeout OLED
 bool oledOn = true;                 // Estado OLED
+int displayOffsetX = 0;
+int displayOffsetY = 0;
+unsigned long lastDisplayOffsetUpdate = 0;
 
 // Home Assistant Integration (futuro)
 bool nightModeEnabled = false;      // Modo noche: activable desde HA
@@ -141,6 +144,8 @@ void drawManualSetupScreen();
 void drawManualRunScreen();
 void drawManualInfiniteScreen();
 void drawPauseScreen();
+void updateDisplayOffset();
+void setCursorWithOffset(int x, int y);
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -236,23 +241,8 @@ void loop() {
   checkButtons();
   updateFanSpeedRamp(); // Ejecutar rampa PWM no-bloqueante
   
-  // Timeout OLED (apagar después de 5 minutos inactividad)
-  // EXCEPCIÓN: En modo INFINITO, mantener OLED encendida siempre
-  // EXCEPCIÓN: En modo NOCHE, mantener OLED encendida también
-  bool keepOledOn = (currentMode == MODE_MANUAL_INFINITE) || nightModeEnabled;
-  
-  if (!keepOledOn && oledOn && (millis() - oledLastActivity > OLED_TIMEOUT * 1000UL)) {
-    display.ssd1306_command(0xAE); // Apagar OLED
-    oledOn = false;
-    Serial.println("OLED off (timeout)");
-  }
-  
-  // Reactivar OLED si está apagado (checkButtons ya lo marca)
-  if (!oledOn && (millis() - oledLastActivity < OLED_TIMEOUT * 1000UL)) {
-    display.ssd1306_command(0xAF); // Encender OLED
-    oledOn = true;
-    Serial.println("OLED on");
-  }
+  // OLED siempre encendida (evitar apagado automático)
+  oledOn = true;
   
   // Parpadeo LED rojo en modo ERROR (no bloqueante)
   if (currentMode == MODE_ERROR) {
@@ -591,10 +581,11 @@ void fatalError(String msg) {
   // Mostrar error en OLED
   display.clearDisplay();
   display.setTextSize(2);
-  display.setCursor(10, 10);
+  updateDisplayOffset();
+  setCursorWithOffset(10, 10);
   display.println("ERROR!");
   display.setTextSize(1);
-  display.setCursor(0, 35);
+  setCursorWithOffset(0, 35);
   display.println(msg.substring(0, 16)); // Primeros 16 caracteres
   display.display();
   oledOn = true;
@@ -610,30 +601,31 @@ void fatalError(String msg) {
 
 void drawAutoScreen() {
   display.clearDisplay();
+  updateDisplayOffset();
   
   // Header
   display.setTextSize(1);
-  display.setCursor(0,0);
+  setCursorWithOffset(0, 0);
   display.print("AUTO MODE");
   
   // Icono o estado fan
-  display.setCursor(80,0);
+  setCursorWithOffset(80, 0);
   display.print(fanRunning ? "FAN:ON" : "STBY");
 
   // Datos Grandes
   display.setTextSize(2);
-  display.setCursor(0, 15);
+  setCursorWithOffset(0, 15);
   display.print(hum, 0); display.print("% ");
-  display.setCursor(64, 15);
+  setCursorWithOffset(64, 15);
   display.print(temp, 0); display.print("C");
 
   // Datos Secundarios
   display.setTextSize(1);
-  display.setCursor(0, 40);
+  setCursorWithOffset(0, 40);
   display.print("Air Q: "); display.print(airQuality);
   
   // Footer
-  display.setCursor(0, 55);
+  setCursorWithOffset(0, 55);
   display.print("Gire -> Manual");
   
   display.display();
@@ -641,45 +633,47 @@ void drawAutoScreen() {
 
 void drawManualSetupScreen() {
   display.clearDisplay();
+  updateDisplayOffset();
   display.setTextSize(1);
-  display.setCursor(0,0);
+  setCursorWithOffset(0, 0);
   display.print("CONFIG MANUAL");
   
-  display.setCursor(10, 15);
+  setCursorWithOffset(10, 15);
   display.print(menuStep == 0 ? "> Tiempo: " : "  Tiempo: ");
   display.print(manualTimeSel); display.println(" min");
   
-  display.setCursor(10, 25);
+  setCursorWithOffset(10, 25);
   display.print(menuStep == 1 ? "> Veloc:  " : "  Veloc:  ");
   display.print(manualSpeedSel); display.println(" %");
   
-  display.setCursor(10, 35);
+  setCursorWithOffset(10, 35);
   display.print(menuStep == 2 ? "> Modo:   " : "  Modo:   ");
   display.println(manualInfiniteSelected ? "Infinito" : "Limitado");
 
-  display.setCursor(10, 45);
+  setCursorWithOffset(10, 45);
   display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
   display.println(manualNightModeSelected ? "SI" : "NO");
 
-  display.setCursor(0, 60);
+  setCursorWithOffset(0, 60);
   display.print("Click=OK Back=Auto");
   display.display();
 }
 
 void drawManualRunScreen() {
   display.clearDisplay();
+  updateDisplayOffset();
   display.setTextSize(1);
-  display.setCursor(0,0);
+  setCursorWithOffset(0, 0);
   display.print("MANUAL RUNNING");
 
   long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000; // USAR fanTimerStart
   
   display.setTextSize(2);
-  display.setCursor(15, 20);
+  setCursorWithOffset(15, 20);
   display.print(remaining); display.print(" min");
   
   display.setTextSize(1);
-  display.setCursor(30, 45);
+  setCursorWithOffset(30, 45);
   display.print("Vel: "); display.print(manualSpeedSel); display.print("% ");
 
   display.display();
@@ -688,6 +682,7 @@ void drawManualRunScreen() {
 void drawManualInfiniteScreen() {
   // Pantalla Dashboard para modo manual infinito
   display.clearDisplay();
+  updateDisplayOffset();
   
   // Animación de título: "EXTRACTOR TUNEADO" con efecto de deslizamiento suave
   static unsigned long animationTime = 0;
@@ -701,11 +696,11 @@ void drawManualInfiniteScreen() {
   
   // Título principal con efecto de desplazamiento - "EXTRACTOR TUNEADO BY RAUL"
   display.setTextSize(1);
-  display.setCursor(scrollPos, 0);
+  setCursorWithOffset(scrollPos, 0);
   display.print("EXTRACTOR TUNEADO BY RAUL");
   
   // Línea divisoria animada (parpadea suavemente)
-  display.setCursor(0, 10);
+  setCursorWithOffset(0, 10);
   static unsigned long lineBlinkTime = 0;
   static bool lineVisible = true;
   
@@ -721,7 +716,7 @@ void drawManualInfiniteScreen() {
   }
   
   // Modo infinito debajo del título
-  display.setCursor(0, 20);
+  setCursorWithOffset(0, 20);
   display.print("[");
   display.print((char)236);  // ∞ Infinito
   display.print("] MANUAL INFINITO");
@@ -729,7 +724,7 @@ void drawManualInfiniteScreen() {
   // Barra de velocidad con % a la derecha
   display.setTextSize(1);
   int barFill = map(manualSpeedSel, 0, 100, 0, 18);
-  display.setCursor(0, 32);
+  setCursorWithOffset(0, 32);
   display.print("[");
   for (int i = 0; i < barFill; i++) display.print((char)254);      // █ Lleno
   for (int i = barFill; i < 18; i++) display.print((char)176);     // ░ Vacío
@@ -738,7 +733,7 @@ void drawManualInfiniteScreen() {
   display.print("%");
   
   // Info sensores: Temperatura, Humedad
-  display.setCursor(0, 42);
+  setCursorWithOffset(0, 42);
   display.print((char)42); display.print(" ");  // ★
   display.print("T:");
   display.print((int)temp);
@@ -749,7 +744,7 @@ void drawManualInfiniteScreen() {
   
   // Indicadores ASCII de Calidad del Aire en la línea donde estaba "BY RAUL"
   // Representan: BUENA / REGULAR / MALA / CRÍTICA
-  display.setCursor(0, 52);
+  setCursorWithOffset(0, 52);
   display.print("Aire: ");
   
   // Emoji ASCII compuesto según calidad
@@ -776,11 +771,42 @@ void drawManualInfiniteScreen() {
 
 void drawPauseScreen() {
   display.clearDisplay();
+  updateDisplayOffset();
   display.setTextSize(2);
-  display.setCursor(10, 20);
+  setCursorWithOffset(10, 20);
   display.print("PAUSADO");
   display.setTextSize(1);
-  display.setCursor(10, 45);
+  setCursorWithOffset(10, 45);
   display.print("Mantener btn PAUSA");
   display.display();
+}
+
+void updateDisplayOffset() {
+  if (millis() - lastDisplayOffsetUpdate > 5000) {
+    lastDisplayOffsetUpdate = millis();
+    static int offsetIndex = 0;
+    offsetIndex = (offsetIndex + 1) % 4;
+    switch (offsetIndex) {
+      case 0:
+        displayOffsetX = 0;
+        displayOffsetY = 0;
+        break;
+      case 1:
+        displayOffsetX = 1;
+        displayOffsetY = 0;
+        break;
+      case 2:
+        displayOffsetX = 0;
+        displayOffsetY = 1;
+        break;
+      case 3:
+        displayOffsetX = 1;
+        displayOffsetY = 1;
+        break;
+    }
+  }
+}
+
+void setCursorWithOffset(int x, int y) {
+  display.setCursor(x + displayOffsetX, y + displayOffsetY);
 }
