@@ -1,0 +1,13 @@
+graph TD
+    subgraph Carcasa
+        id1[ESP32 + Placa Expansion]
+        id3(Entrada Fuente 12V)
+        id5(Ventilador + Diodo 1N5408)
+        id3 --> id5
+        id4(MOSFET N-channel - low-side)
+        id5 -- "GND (retorno) via MOSFET" --> id4
+        idG[Gate resistor 100R]
+        idPD[Pull-down 100k]
+        id1 -- "GPIO 19 (PWM Gate MOSFET)" --> idG --> id4
+        idPD --> id4
+    end

@@ -1,0 +1,9 @@
+graph TD
+    subgraph Circuito_de_Potencia
+        D[Fuente 12V / 4A]
+        D -- "+12V" --> F((Ventilador Delta 2.7A))
+        D -- "GND" --> G2(GND)
+        F -- "GND (retorno) via MOSFET" --> E[MOSFET N-channel - Low-side]
+        B -- "PWM (GPIO 19) -> Gate (via R 100R)" --> Gres[Gate resistor 100R] --> E
+        PD[Pull-down 100k] --> E
+    end

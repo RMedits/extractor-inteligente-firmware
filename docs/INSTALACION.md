@@ -88,8 +88,8 @@ En la pantalla OLED, verás una pantalla de bienvenida y luego la de calibració
   - **Solución**: Deja el sistema encendido durante al menos 30 minutos para obtener lecturas fiables. Sigue la `CALIBRACION.md`.
 
 - **Ventilador no arranca**:
-  - **Causa**: Conexión incorrecta del relé/PWM, falta de alimentación externa de 12V.
-  - **Solución**: Asegúrate de que la fuente de 12V esté conectada y que el GND sea común. Verifica el cableado del relé y el pin PWM hacia el ventilador.
+  - **Causa**: Conexión incorrecta del circuito de potencia/PWM, falta de alimentación externa de 12V o MOSFET mal cableado.
+  - **Solución**: Asegúrate de que la fuente de 12V esté conectada y que el GND sea común. Verifica el cableado del MOSFET (retorno a GND) y el pin PWM (GPIO 19) hacia la gate/dispositivo de control.
 
 - **ESP32 se reinicia constantemente**:
   - **Causa**: Alimentación insuficiente desde el puerto USB, especialmente si hay muchos componentes.
