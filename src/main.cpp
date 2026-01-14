@@ -123,6 +123,7 @@ bool oledOn = true;                 // Estado OLED
 
 // Home Assistant Integration (futuro)
 bool nightModeEnabled = false;      // Modo noche: activable desde HA
+String lastErrorMessage = "";
 
 // -------------------------------------------------------------------------
 // --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
@@ -141,6 +142,10 @@ void drawManualSetupScreen();
 void drawManualRunScreen();
 void drawManualInfiniteScreen();
 void drawPauseScreen();
+void drawErrorScreen();
+void drawAnimatedHeader();
+void drawCenteredLine(const String &text, int y, int textSize);
+void drawWrappedMessage(const String &msg, int startY, int maxLines);
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -300,7 +305,7 @@ void loop() {
       setFanSpeed(0); // Apagar completamente en error
       // fatalError() ya muestra LED rojo
       if (oledOn) {
-        display.display(); // Mantener error visible
+        drawErrorScreen();
       }
       break;
   }
@@ -587,17 +592,10 @@ void fatalError(String msg) {
   digitalWrite(LED_GREEN_PIN, LOW);
   setFanSpeed(0); // Apagar ventilador
   currentMode = MODE_ERROR;
-  
-  // Mostrar error en OLED
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 10);
-  display.println("ERROR!");
-  display.setTextSize(1);
-  display.setCursor(0, 35);
-  display.println(msg.substring(0, 16)); // Primeros 16 caracteres
-  display.display();
+
+  lastErrorMessage = msg;
   oledOn = true;
+  drawErrorScreen();
   
   // LED rojo parpadea cada 500ms (señal de error)
   // pero la función retorna para que loop() siga ejecutando
@@ -685,40 +683,85 @@ void drawManualRunScreen() {
   display.display();
 }
 
-void drawManualInfiniteScreen() {
-  // Pantalla Dashboard para modo manual infinito
-  display.clearDisplay();
-  
+void drawAnimatedHeader() {
   // Animación de título: "EXTRACTOR TUNEADO" con efecto de deslizamiento suave
   static unsigned long animationTime = 0;
   static int scrollPos = 0;
-  
+
   // Cambiar posición cada 500ms (más lento = más elegante)
   if (millis() - animationTime > 500) {
     animationTime = millis();
     scrollPos = (scrollPos + 1) % 5; // 5 posiciones de scroll
   }
-  
+
   // Título principal con efecto de desplazamiento - "EXTRACTOR TUNEADO BY RAUL"
   display.setTextSize(1);
   display.setCursor(scrollPos, 0);
   display.print("EXTRACTOR TUNEADO BY RAUL");
-  
+
   // Línea divisoria animada (parpadea suavemente)
   display.setCursor(0, 10);
   static unsigned long lineBlinkTime = 0;
   static bool lineVisible = true;
-  
+
   if (millis() - lineBlinkTime > 600) {
     lineBlinkTime = millis();
     lineVisible = !lineVisible;
   }
-  
+
   if (lineVisible) {
     for (int i = 0; i < 21; i++) display.print("-");
   } else {
     for (int i = 0; i < 21; i++) display.print(" ");
   }
+}
+
+void drawCenteredLine(const String &text, int y, int textSize) {
+  int textWidth = text.length() * 6 * textSize;
+  int x = (SCREEN_WIDTH - textWidth) / 2;
+  if (x < 0) x = 0;
+  display.setTextSize(textSize);
+  display.setCursor(x, y);
+  display.print(text);
+}
+
+void drawWrappedMessage(const String &msg, int startY, int maxLines) {
+  const int charsPerLine = 21;
+  static unsigned long msgScrollTime = 0;
+  static int msgStartLine = 0;
+  static String cachedMsg = "";
+
+  if (msg != cachedMsg) {
+    cachedMsg = msg;
+    msgStartLine = 0;
+    msgScrollTime = 0;
+  }
+
+  int totalLines = (msg.length() + charsPerLine - 1) / charsPerLine;
+  if (totalLines > maxLines && millis() - msgScrollTime > 1200) {
+    msgScrollTime = millis();
+    int maxStart = totalLines - maxLines;
+    msgStartLine = (msgStartLine + 1) % (maxStart + 1);
+  }
+
+  for (int i = 0; i < maxLines; i++) {
+    int lineIndex = msgStartLine + i;
+    int start = lineIndex * charsPerLine;
+    if (start >= msg.length()) {
+      break;
+    }
+    String line = msg.substring(start, start + charsPerLine);
+    display.setTextSize(1);
+    display.setCursor(0, startY + (i * 8));
+    display.print(line);
+  }
+}
+
+void drawManualInfiniteScreen() {
+  // Pantalla Dashboard para modo manual infinito
+  display.clearDisplay();
+
+  drawAnimatedHeader();
   
   // Modo infinito debajo del título
   display.setCursor(0, 20);
@@ -776,11 +819,20 @@ void drawManualInfiniteScreen() {
 
 void drawPauseScreen() {
   display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 20);
-  display.print("PAUSADO");
-  display.setTextSize(1);
-  display.setCursor(10, 45);
-  display.print("Mantener btn PAUSA");
+  drawAnimatedHeader();
+
+  drawCenteredLine("PAUSADO", 22, 2);
+  drawCenteredLine("Mantener btn PAUSA", 44, 1);
+  display.display();
+}
+
+void drawErrorScreen() {
+  display.clearDisplay();
+  drawAnimatedHeader();
+
+  drawCenteredLine("ERROR", 20, 2);
+  drawCenteredLine("Revisar sistema", 42, 1);
+  String errorMsg = lastErrorMessage.length() > 0 ? lastErrorMessage : "Sin detalles";
+  drawWrappedMessage(errorMsg, 50, 2);
   display.display();
 }
