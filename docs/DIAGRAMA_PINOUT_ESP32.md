@@ -34,7 +34,7 @@ Usa este documento para saber qué agujero del Shield corresponde a cada funció
 | Etiqueta Shield | Función en el Proyecto |
 | :--- | :--- |
 | **GND** | GND Común |
-| **P23** | **Relé Signal** |
+| **P23** | (No usado - anteriormente destinado al relé) |
 | **P22** | **I2C SCL (Reloj)** |
 | **TX** | - |
 | **RX** | - |
@@ -58,5 +58,5 @@ Usa este documento para saber qué agujero del Shield corresponde a cada funció
 ### 💡 NOTA IMPORTANTE SOBRE FILAS G-V-S
 Para cada pin de la lista anterior, tienes una fila de 3 pines macho:
 1.  **S (Signal):** El cable de datos va AQUÍ.
-2.  **V (Voltage):** 5V (si el jumper está en 5V). Úsalo para el Relé y MQ135.
+2.  **V (Voltage):** 5V (si el jumper está en 5V). Úsalo para MQ135 y otros periféricos 5V.
 3.  **G (Ground):** Tierra. Úsalo para todos los componentes.

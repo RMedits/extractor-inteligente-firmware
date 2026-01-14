@@ -13,10 +13,11 @@ graph TD
 
     subgraph "Circuito de Potencia"
         D[Fuente 12V / 4A]
-        D -- "+12V" --> E{Rele KY-019};
-        E -- "+12V Switch" --> F((Ventilador Delta 2.7A));
+        D -- "+12V" --> F((Ventilador Delta 2.7A));
         D -- "GND" --> G2(GND);
-        F -- "Control PWM (GPIO 19)" --> B;
+        F -- "GND (retorno) vía MOSFET" --> E[MOSFET N-channel (Low-side)];
+        B -- "PWM (GPIO 19) -> Gate (via R 100Ω)" --> Gres[Gate resistor 100Ω] --> E;
+        PD[Pull-down 100k] --> E;
     end
 
     %% Conexion Critica

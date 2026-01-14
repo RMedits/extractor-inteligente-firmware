@@ -38,20 +38,19 @@ PROYECTO: Extractor Inteligente (Shield Morada 38P)
 2. CIRCUITO DE POTENCIA (Ventilador Delta 12V)
 ================================================================================
 
-   [ SHIELD PIN ]     [ RELE KY-019 ]
-   --------------     ---------------
-   P23  ------------> S (Signal)
-   Fila V (5V)  ----> + (VCC)
+   [ SHIELD PIN ]     [ MOSFET N-channel (Low-side) ]
+   --------------     --------------------------------
+   P19  ------------> Gate (PWM control)
+   Fila V (5V)  ----> + (VCC)  (Nota: Alimentación del ventilador debe ser +12V desde fuente dedicada)
    Fila G (GND) ----> - (GND)
 
    [ SHIELD PIN ]     [ VENTILADOR (PWM 4 HILOS) ]
    --------------     ---------------------------
-   P19  ------------> PWM (Cable de control)
+   P19  ------------> PWM (Cable de control / Gate via driver si aplica)
 
 ================================================================================
 3. NOTAS CRITICAS
 ================================================================================
 - JUMPER VOLTAJE: Debe estar en la posicion "5V".
 - PWM PIN: Usamos P19 (GPIO 19) por seguridad en el arranque.
-- ALIMENTACION: Todo el sistema (ESP32, Rele, Sensores) se alimenta desde el 
-  puerto USB del ESP32 o Vin por ahora.
+ - ALIMENTACION: Lógica (ESP32, sensores) desde USB/Vin; ventilador desde fuente +12V dedicada. Asegura GND común.

@@ -21,10 +21,14 @@ graph TD
     end
 
     subgraph "Salidas"
-        D(Relé / PWM Ventilador)
+        D(MOSFET / PWM Ventilador)
+        Gres[Gate: R=100Ω]
+        Pdown[Pull-down: 100k]
         E
         F
     end
+    B -- "PWM (GPIO 19)" --> Gres --> D
+    Pdown --> D
 
     style A fill:#2196F3,color:#fff
     style C fill:#FF9800,color:#fff
