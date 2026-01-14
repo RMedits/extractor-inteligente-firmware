@@ -88,3 +88,5 @@ Ejemplo (renderizado en Markdown):
 ![Arquitectura](docs/mermaid/arquitectura_sistema.svg)
 
 ```
+
+
