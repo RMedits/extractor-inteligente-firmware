@@ -25,8 +25,9 @@
 #define BAK_BUTTON_PIN    13  // Botón Lateral 2 (PAUSA/Emergencia) - MOVIDO AL 13 (Pin 26 dañado)
 
 // Actuadores
-#define RELAY_PIN         23  // Corte de energía (+12V)
-#define PWM_FAN_PIN       19  // Control de velocidad (PWM al ventilador 4 hilos)
+// El control de potencia se realiza con un MOSFET, pilotado por la salida PWM
+// `PWM_FAN_PIN` (no se usa relé físico).
+#define PWM_FAN_PIN       19  // Control de velocidad (PWM al ventilador / gate MOSFET)
 #define FAN_TACH_PIN      16  // Lectura de RPM (Cable Amarillo) - PREPARADO PARA FUTURO
 
 // Sensores Analógicos
@@ -123,8 +124,7 @@ void setup() {
   Serial.println("\n--- INICIANDO EXTRACTOR INTELIGENTE v7.1 ---");
 
   // 1. Configurar Pines
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW); // Asegurar RELÉ APAGADO al inicio
+  // No se usa relé: el MOSFET se controla via PWM en `PWM_FAN_PIN`.
 
   pinMode(LED_RED_PIN, OUTPUT);
   pinMode(LED_YELLOW_PIN, OUTPUT);
@@ -230,15 +230,14 @@ void loop() {
 void setFanSpeed(int speedPWM) {
   // speedPWM: 0-255
   if (speedPWM > 0) {
-    digitalWrite(RELAY_PIN, HIGH); // Activar Relé (Energía)
-    // Pequeño delay para asegurar que el relé cierre antes de meter PWM (opcional pero bueno)
-    if (!fanRunning) { delay(50); fanRunning = true; }
+    // Encender MOSFET (se aplica PWM directamente)
+    if (!fanRunning) { delay(10); fanRunning = true; }
     ledcWrite(PWM_CHANNEL, speedPWM);
     currentSpeed = speedPWM;
   } else {
     ledcWrite(PWM_CHANNEL, 0);
     delay(100); // Esperar a que baje RPM
-    digitalWrite(RELAY_PIN, LOW); // Cortar Relé
+    // No hay relé que cortar
     fanRunning = false;
     currentSpeed = 0;
   }

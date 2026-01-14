@@ -1,0 +1,8 @@
+graph TD
+    A[Sensores Ambientales] -- Datos --> B{ESP32}
+    C[Controles Usuario] -- Comandos --> B
+    B -- Lógica de Control --> D(MOSFET / PWM Ventilador)
+    Gres[Gate: R=100Ω]
+    Pdown[Pull-down: 100k]
+    B -- "PWM (GPIO 19)" --> Gres --> D
+    Pdown --> D

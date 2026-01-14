@@ -14,14 +14,18 @@ graph TD
 
         subgraph "Zona de Potencia (12V)"
             id3(Entrada Fuente 12V)
-            id4(Rele KY-019)
             id5(Ventilador + Diodo 1N5408)
-            id3 --> id4 --> id5
+            id3 --> id5
+            id4(MOSFET N-channel)
+            id5 -- "GND (retorno) vía MOSFET" --> id4
+            idG[Gate resistor 100Ω]
+            idPD[Pull-down 100k]
+            id1 -- "GPIO 19 (PWM Gate MOSFET)" --> idG --> id4
+            idPD --> id4
         end
 
         %% Conexiones entre zonas
-        id1 -- "GPIO 23 (Control Rele)" --> id4
-        id1 -- "GPIO 19 (PWM Fan)" --> id5
+        id1 -- "GPIO 19 (PWM Gate MOSFET)" --> id4
     end
 
     subgraph "Panel Frontal"

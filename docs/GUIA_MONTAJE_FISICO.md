@@ -7,17 +7,17 @@ La correcta disposición física de los componentes es fundamental para el buen 
 La regla más importante es **separar la electrónica de potencia (12V) de la electrónica de control y sensores (3.3V/5V)**.
 
 - **Carcasa/Caja**: Se recomienda montar todo dentro de una caja de plástico.
-- **Zonas**: Crea una "Zona de Potencia" (Relé, Ventilador, 12V) y una "Zona de Control" (ESP32, Sensores).
+- **Zonas**: Crea una "Zona de Potencia" (MOSFET, Ventilador, 12V) y una "Zona de Control" (ESP32, Sensores).
 - **GND Común**: Es obligatorio que el negativo (-) de la fuente de 12V y el GND del ESP32 estén unidos en un solo punto.
 
 ---
 
 ## 2. Control PWM del Ventilador (4 Hilos)
 
-El ventilador se controla por la línea PWM dedicada (no se usa MOSFET).
+El ventilador se controla por la línea PWM dedicada.
 
 - **Señal PWM**: Conecta **GPIO 19** directamente al cable PWM del ventilador (4 hilos).
-- **Alimentación**: El relé solo corta o da el +12V del ventilador.
+- **Alimentación/Corte**: Para ON/OFF de potencia se emplea un **MOSFET N-channel** en configuración low-side en lugar de un relé mecánico.
 
 ---
 

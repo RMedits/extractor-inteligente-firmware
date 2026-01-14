@@ -12,7 +12,7 @@ Estos componentes manejan la alta potencia.
 - [ ] **Protección Anti-Retorno:** 1x Diodo **1N5408** (3A, 1000V). *Se suelda en los cables del ventilador.*
 - [ ] **Filtrado de Ruido (Agudos):** 1x Condensador Cerámico **100nF / 50V** (o superior).
 - [ ] **Estabilización de Arranque:** 1x Condensador Electrolítico **470µF / 50V** (¡Importante que sea de 50V!).
-- [ ] **Corte de Seguridad:** 1x Módulo Relé **KY-019** de 5V (El estándar azul).
+ - [ ] **Corte de Seguridad / Switch de Potencia:** 1x MOSFET N-channel de potencia (low-side), p. ej. MOSFET lógico de baja Rds(on) y adecuada corriente de drenaje.
 
 ---
 
@@ -35,7 +35,7 @@ Estos componentes forman el cerebro y la interfaz.
 ---
 
 ## 🔌 Material Vario y Conexiones
-- [ ] **Caja estanca/proyecto:** Tamaño suficiente para alojar la shield y el relé.
+ - [ ] **Caja estanca/proyecto:** Tamaño suficiente para alojar la shield y el MOSFET/heatsink si aplica.
 - [ ] **Cables:**
     - Cables Dupont (Hembra-Hembra y Hembra-Macho) para sensores y lógica.
     - Cable eléctrico de 18-20 AWG (grosor medio) para la línea de 24V y Ventilador.
@@ -48,4 +48,4 @@ Estos componentes forman el cerebro y la interfaz.
 
 1.  **Condensador Electrolítico:** Debe ser de **50V** mínimo. Si pones uno de 16V o 25V en una línea de 24V, **explotará**.
 2.  **GND Común:** Al usar dos fuentes (Cargador 5V + Fuente 24V), es **OBLIGATORIO** conectar un cable negro entre el negativo de la fuente de 24V y un pin GND del ESP32. Sin esto, el control de velocidad no funcionará.
-3.  **Relé:** El cable rojo de 24V pasa por los bornes **COM** y **NO** del relé. La electrónica del relé (pines) se conecta a los 5V del ESP32.
+3.  **MOSFET (bajo lado):** El cable positivo (+24V) va directo al ventilador; el retorno (GND del ventilador) pasa por el MOSFET hacia GND. La gate se controla desde GPIO (con resistor de 100R-1k y pull-down 100k recomendado). Asegura GND común entre fuentes.

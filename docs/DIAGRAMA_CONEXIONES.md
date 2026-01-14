@@ -46,7 +46,7 @@ Este diagrama utiliza las etiquetas serigrafiadas en la **Placa de Expansión Mo
 
 ### Control del Ventilador (PWM 4 Hilos)
 - **PWM Ventilador:** Pin **P19** (Fila S). *GPIO 14 descartado por seguridad*.
-- **Relé KY-019 (Signal):** Pin **P23** (Fila S).
+- **MOSFET (Gate / Control ON/OFF):** Controlado desde **P19 (GPIO 19)** o el pin PWM asignado; no se utiliza relé.
 
 ### LEDs de Estado Externos
 - **LED Rojo (Standby/Error):** Pin **P4** (Fila S) vía resistencia 220Ω.
