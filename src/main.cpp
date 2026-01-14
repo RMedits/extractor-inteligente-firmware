@@ -90,6 +90,7 @@ unsigned long timerDuration = 0; // En milisegundos
 bool fanRunning = false;
 unsigned long lastPwmRampTime = 0; // Control de rampa PWM
 bool infiniteManualMode = false; // Modo manual sin límite de tiempo
+bool displayNeedsUpdate = true;  // Flag para actualizar pantalla solo cuando necesario
 
 // Variables Manual Setup
 int menuStep = 0; // 0: Tiempo, 1: Velocidad, 2: Modo (Limitado/Infinito), 3: Modo Noche, 4: Confirmar
@@ -263,20 +264,43 @@ void loop() {
     }
   }
   
+  static SystemMode lastMode = currentMode;
+  if (currentMode != lastMode) {
+      displayNeedsUpdate = true;
+      lastMode = currentMode;
+  }
+
+  // Timer checks for specific modes
+  if (currentMode == MODE_MANUAL_INFINITE) {
+     static unsigned long lastAnimUpdate = 0;
+     if (millis() - lastAnimUpdate > 500) {
+        displayNeedsUpdate = true;
+        lastAnimUpdate = millis();
+     }
+  }
+  if (currentMode == MODE_MANUAL_RUN) {
+     static long lastRemaining = -1;
+     long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000;
+     if (remaining != lastRemaining) {
+         displayNeedsUpdate = true;
+         lastRemaining = remaining;
+     }
+  }
+
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
+      if (displayNeedsUpdate && oledOn) drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup();
-      drawManualSetupScreen();
+      if (displayNeedsUpdate && oledOn) drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
+      if (displayNeedsUpdate && oledOn) drawManualRunScreen();
       break;
 
     case MODE_MANUAL_INFINITE: {
@@ -286,24 +310,26 @@ void loop() {
       }
       int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
       setFanSpeed(pwmVal);
-      drawManualInfiniteScreen();
+      if (displayNeedsUpdate && oledOn) drawManualInfiniteScreen();
       break;
     }
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
+      if (displayNeedsUpdate && oledOn) drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(0); // Apagar completamente en error
       // fatalError() ya muestra LED rojo
-      if (oledOn) {
+      if (oledOn && displayNeedsUpdate) {
         display.display(); // Mantener error visible
       }
       break;
   }
+
+  if (oledOn) displayNeedsUpdate = false;
   
   updateLEDs();
   // SIN delay() bloqueante: usar timers no-bloqueantes en funciones específicas
@@ -316,11 +342,13 @@ void loop() {
 void setFanSpeed(int speedPWM) {
   // speedPWM: 0-255 (se aplica rampa suave)
   targetSpeed = speedPWM;
+  bool wasRunning = fanRunning;
   if (speedPWM > 0) {
     if (!fanRunning) fanRunning = true;
   } else {
     fanRunning = false;
   }
+  if (fanRunning != wasRunning) displayNeedsUpdate = true;
   // La rampa se ejecuta en updateFanSpeedRamp() desde loop()
 }
 
@@ -370,6 +398,7 @@ void readSensors() {
       temp = t.temperature;
       sensorFailCount = 0;
       sensorState = SENSOR_OK;
+      displayNeedsUpdate = true;
     } else {
       // AHT20 falló, intentar BMP280 como redundancia
       bool bmp_ok = false;
@@ -385,6 +414,7 @@ void readSensors() {
         temp = temp_bmp; // Usar BMP280 como fallback
         sensorState = SENSOR_DEGRADED;
         Serial.println("BMP280 redundancia activa (AHT20 falló)");
+        displayNeedsUpdate = true;
       } else {
         sensorFailCount++;
         if (sensorFailCount >= MAX_SENSOR_FAILS) {
@@ -413,7 +443,11 @@ void readSensors() {
     
     if (mq135_warmed) {
       int raw = analogRead(MQ135_ANALOG_PIN);
-      airQuality = (airQuality * 0.8) + (raw * 0.2); // Media móvil
+      int newAirQuality = (airQuality * 0.8) + (raw * 0.2); // Media móvil
+      if (abs(newAirQuality - airQuality) > 2) { // Solo actualizar si cambia significativamente
+         airQuality = newAirQuality;
+         displayNeedsUpdate = true;
+      }
     } else {
       airQuality = mq135_baseline; // Mientras precalienta, usar baseline
     }
@@ -471,6 +505,7 @@ void checkButtons() {
   // 1. Encoder Rotativo (Navegación)
   long encVal = encoder.getCount() / 2;
   if (encVal != oldEncPos) {
+    displayNeedsUpdate = true;
     if (currentMode == MODE_MANUAL_SETUP) {
       if (menuStep == 0) { // Tiempo
         if (encVal > oldEncPos) manualTimeSel += 15; else manualTimeSel -= 15;
@@ -504,6 +539,7 @@ void checkButtons() {
       // Botón confirmado presionado
       if (currentMode == MODE_MANUAL_SETUP) {
         menuStep++;
+        displayNeedsUpdate = true;
         if (menuStep > 3) { // Después del paso 3 (modo noche), confirmar
           infiniteManualMode = manualInfiniteSelected;
           nightModeEnabled = manualNightModeSelected;
@@ -529,6 +565,7 @@ void checkButtons() {
     if (confirmButtonSamples >= DEBOUNCE_SAMPLES) {
       // Botón confirmado presionado
       currentMode = MODE_AUTO;
+      displayNeedsUpdate = true;
       menuStep = 0;
       manualNightModeSelected = false; // Resetear selección de modo noche
       confirmButtonSamples = 0;
@@ -553,6 +590,7 @@ void checkButtons() {
           } else {
             currentMode = MODE_PAUSE;
           }
+          displayNeedsUpdate = true;
           bakButtonHeld = false;
         }
       }
