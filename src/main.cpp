@@ -642,27 +642,57 @@ void drawAutoScreen() {
 void drawManualSetupScreen() {
   display.clearDisplay();
   display.setTextSize(1);
-  display.setCursor(0,0);
+
+  // Animación de título: "CONFIG MANUAL" con efecto de deslizamiento suave
+  static unsigned long animationTime = 0;
+  static int scrollPos = 0;
+  if (millis() - animationTime > 500) {
+    animationTime = millis();
+    scrollPos = (scrollPos + 1) % 5;
+  }
+  display.setCursor(scrollPos, 0);
   display.print("CONFIG MANUAL");
-  
-  display.setCursor(10, 15);
-  display.print(menuStep == 0 ? "> Tiempo: " : "  Tiempo: ");
-  display.print(manualTimeSel); display.println(" min");
-  
-  display.setCursor(10, 25);
-  display.print(menuStep == 1 ? "> Veloc:  " : "  Veloc:  ");
-  display.print(manualSpeedSel); display.println(" %");
-  
-  display.setCursor(10, 35);
-  display.print(menuStep == 2 ? "> Modo:   " : "  Modo:   ");
-  display.println(manualInfiniteSelected ? "Infinito" : "Limitado");
 
-  display.setCursor(10, 45);
-  display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
-  display.println(manualNightModeSelected ? "SI" : "NO");
+  // Línea divisoria animada (parpadea suavemente)
+  display.setCursor(0, 10);
+  static unsigned long lineBlinkTime = 0;
+  static bool lineVisible = true;
+  if (millis() - lineBlinkTime > 600) {
+    lineBlinkTime = millis();
+    lineVisible = !lineVisible;
+  }
+  if (lineVisible) {
+    for (int i = 0; i < 21; i++) display.print("-");
+  } else {
+    for (int i = 0; i < 21; i++) display.print(" ");
+  }
 
-  display.setCursor(0, 60);
-  display.print("Click=OK Back=Auto");
+  const char* activeLabel = "";
+  String activeValue;
+  if (menuStep == 0) {
+    activeLabel = "TIEMPO";
+    activeValue = String(manualTimeSel) + " min";
+  } else if (menuStep == 1) {
+    activeLabel = "VELOC";
+    activeValue = String(manualSpeedSel) + " %";
+  } else if (menuStep == 2) {
+    activeLabel = "MODO";
+    activeValue = manualInfiniteSelected ? "Infinito" : "Limitado";
+  } else if (menuStep == 3) {
+    activeLabel = "NOCHE";
+    activeValue = manualNightModeSelected ? "SI" : "NO";
+  }
+
+  display.setCursor(0, 22);
+  display.print(">");
+  display.print(activeLabel);
+
+  display.setCursor(0, 34);
+  display.print("Valor: ");
+  display.print(activeValue);
+
+  display.setCursor(0, 56);
+  display.print("Click=OK / Back=Auto");
   display.display();
 }
 
