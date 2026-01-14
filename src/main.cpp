@@ -61,7 +61,7 @@
 #define PAUSE_HOLD_TIME   2000  // ms para activar pausa
 #define PWM_RAMP_STEP     5     // ms entre pasos de rampa PWM (suave)
 #define PWM_RAMP_DELTA    10    // cambio máximo de PWM por paso
-#define OLED_TIMEOUT      300000 // ms (5 min) antes de apagar pantalla
+// NOTA: OLED siempre encendida (sin timeout) - usar elementos dinámicos anti burn-in
 #define MQ135_WARMUP_TIME 30000 // ms (30 seg) precalentamiento mínimo
 #define I2C_RETRY_TIMES   3     // reintentos en lectura I2C
 #define SENSOR_READ_INTERVAL 2000 // ms entre lecturas de sensores
@@ -97,6 +97,7 @@ int manualTimeSel = 30; // Minutos
 int manualSpeedSel = 50; // %
 bool manualInfiniteSelected = false; // Selección de modo infinito
 bool manualNightModeSelected = false; // Selección de modo noche
+int manualBromaMode = 0; // 0=Normal, 1=Conguitos(30%), 2=Serpentina(55%), 3=Morcilla(80%)
 
 // Variables Botones/Encoder (con debounce por muestreo)
 long oldEncPos = 0;
@@ -118,8 +119,7 @@ const int MAX_SENSOR_FAILS = 3;
 unsigned long setupTime = 0;        // Para MQ135 warmup
 bool mq135_warmed = false;
 int mq135_baseline = 400;           // Baseline inicial (aire relativo limpio)
-unsigned long oledLastActivity = 0; // Timeout OLED
-bool oledOn = true;                 // Estado OLED
+// NOTA: Variables oledLastActivity y oledOn eliminadas - pantalla siempre encendida
 
 // Home Assistant Integration (futuro)
 bool nightModeEnabled = false;      // Modo noche: activable desde HA
@@ -180,8 +180,6 @@ void setup() {
     display.setCursor(10, 20);
     display.println("INICIANDO...");
     display.display();
-    oledOn = true;
-    oledLastActivity = millis();
   }
 
   // 4. Inicializar Sensores (con reintentos)
@@ -236,23 +234,10 @@ void loop() {
   checkButtons();
   updateFanSpeedRamp(); // Ejecutar rampa PWM no-bloqueante
   
-  // Timeout OLED (apagar después de 5 minutos inactividad)
-  // EXCEPCIÓN: En modo INFINITO, mantener OLED encendida siempre
-  // EXCEPCIÓN: En modo NOCHE, mantener OLED encendida también
-  bool keepOledOn = (currentMode == MODE_MANUAL_INFINITE) || nightModeEnabled;
-  
-  if (!keepOledOn && oledOn && (millis() - oledLastActivity > OLED_TIMEOUT * 1000UL)) {
-    display.ssd1306_command(0xAE); // Apagar OLED
-    oledOn = false;
-    Serial.println("OLED off (timeout)");
-  }
-  
-  // Reactivar OLED si está apagado (checkButtons ya lo marca)
-  if (!oledOn && (millis() - oledLastActivity < OLED_TIMEOUT * 1000UL)) {
-    display.ssd1306_command(0xAF); // Encender OLED
-    oledOn = true;
-    Serial.println("OLED on");
-  }
+  // NOTA DISEÑO: La pantalla OLED permanece SIEMPRE ENCENDIDA.
+  // Para evitar quemado de píxeles (burn-in), todos los modos usan elementos
+  // dinámicos (scrolling, animaciones) como en MODE_MANUAL_INFINITE.
+  // NO implementar timeout de apagado - decisión de diseño v7.2C.
   
   // Parpadeo LED rojo en modo ERROR (no bloqueante)
   if (currentMode == MODE_ERROR) {
@@ -281,7 +266,8 @@ void loop() {
 
     case MODE_MANUAL_INFINITE: {
       // Modo manual sin límite de tiempo
-      if (millis() - fanTimerStart < 300000UL) { // Reset timer cada 5 min (evitar overflow)
+      // Reset timer cada 5 min para evitar overflow de millis() tras 49 días
+      if (millis() - fanTimerStart >= 300000UL) {
         fanTimerStart = millis();
       }
       int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
@@ -298,10 +284,7 @@ void loop() {
       
     case MODE_ERROR:
       setFanSpeed(0); // Apagar completamente en error
-      // fatalError() ya muestra LED rojo
-      if (oledOn) {
-        display.display(); // Mantener error visible
-      }
+      // fatalError() ya muestra LED rojo y pantalla de error
       break;
   }
   
@@ -353,7 +336,6 @@ void updateFanSpeedRamp() {
 void readSensors() {
   if (millis() - lastSensorRead > 2000) { // Leer cada 2 segundos
     lastSensorRead = millis();
-    oledLastActivity = millis(); // Resetear timeout OLED
     
     // 1. Leer AHT20 con reintentos I2C
     sensors_event_t h, t;
@@ -401,7 +383,7 @@ void readSensors() {
     
     // 2. MQ135 - con precalentamiento
     unsigned long warmupElapsed = millis() - setupTime;
-    if (warmupElapsed >= MQ135_WARMUP_TIME * 1000) {
+    if (warmupElapsed >= MQ135_WARMUP_TIME) { // MQ135_WARMUP_TIME ya está en ms (30000)
       mq135_warmed = true;
       if (mq135_baseline == 400) { // Primera lectura después de warmup
         int raw = analogRead(MQ135_ANALOG_PIN);
@@ -423,15 +405,15 @@ void readSensors() {
 void runAutoLogic() {
   int newTarget = 0;
 
-  // Lógica de Prioridades
+  // Lógica de Prioridades (máximo 80% para alargar vida útil del ventilador)
   if (hum >= HUMIDITY_HIGH) {
-    newTarget = 255; // 100%
+    newTarget = 204; // 80% (255 * 0.8)
   } else if (hum >= HUMIDITY_MED) {
-    newTarget = 180; // ~70%
+    newTarget = 153; // ~60%
   } else if (temp >= TEMP_HIGH) {
-    newTarget = 150; // ~60%
+    newTarget = 128; // ~50%
   } else if (airQuality >= AIR_BAD) {
-    newTarget = 100; // ~40%
+    newTarget = 102; // ~40%
   } else {
     newTarget = 0; // Apagado
   }
@@ -486,15 +468,28 @@ void checkButtons() {
       } else if (menuStep == 3) { // Seleccionar modo noche
         if (encVal > oldEncPos) manualNightModeSelected = true;
         else manualNightModeSelected = false;
+      } else if (menuStep == 4) { // Seleccionar modo broma (Tronco de Olor)
+        if (encVal > oldEncPos) {
+          manualBromaMode++;
+          if (manualBromaMode > 3) manualBromaMode = 0;
+        } else {
+          manualBromaMode--;
+          if (manualBromaMode < 0) manualBromaMode = 3;
+        }
       }
     } else if (currentMode == MODE_AUTO) {
        // Si giramos en AUTO, entramos a MANUAL SETUP
        currentMode = MODE_MANUAL_SETUP;
        menuStep = 0;
        manualTimeSel = 30;
+    } else if (currentMode == MODE_MANUAL_INFINITE) {
+       // En modo infinito, ajustar velocidad con encoder
+       if (encVal > oldEncPos) manualSpeedSel += 10;
+       else manualSpeedSel -= 10;
+       if (manualSpeedSel < 10) manualSpeedSel = 10;
+       if (manualSpeedSel > 100) manualSpeedSel = 100;
     }
     oldEncPos = encVal;
-    oledLastActivity = millis(); // Resetear timeout
   }
 
   // 2. Encoder Switch (OK / Next) - Debounce con máquina de estados
@@ -504,11 +499,22 @@ void checkButtons() {
       // Botón confirmado presionado
       if (currentMode == MODE_MANUAL_SETUP) {
         menuStep++;
-        if (menuStep > 3) { // Después del paso 3 (modo noche), confirmar
+        if (menuStep > 4) { // Después del paso 4 (modo broma), confirmar
           infiniteManualMode = manualInfiniteSelected;
           nightModeEnabled = manualNightModeSelected;
-          if (infiniteManualMode) {
+          
+          // Si es modo broma, aplicar configuración especial (7 min, velocidades preset)
+          if (manualBromaMode > 0) {
+            currentMode = MODE_MANUAL_RUN;
+            timerDuration = 7 * 60000UL; // 7 minutos fijos
+            fanTimerStart = millis();
+            // Velocidades: Conguitos=30%, Serpentina=55%, Morcilla=80%
+            if (manualBromaMode == 1) manualSpeedSel = 30;
+            else if (manualBromaMode == 2) manualSpeedSel = 55;
+            else if (manualBromaMode == 3) manualSpeedSel = 80;
+          } else if (infiniteManualMode) {
             currentMode = MODE_MANUAL_INFINITE;
+            fanTimerStart = millis(); // Inicializar timer para prevención de overflow
           } else {
             currentMode = MODE_MANUAL_RUN;
             timerDuration = manualTimeSel * 60000UL;
@@ -531,6 +537,7 @@ void checkButtons() {
       currentMode = MODE_AUTO;
       menuStep = 0;
       manualNightModeSelected = false; // Resetear selección de modo noche
+      manualBromaMode = 0; // Resetear modo broma
       confirmButtonSamples = 0;
     }
   } else {
@@ -561,7 +568,6 @@ void checkButtons() {
     bakButtonSamples = 0;
     bakButtonHeld = false;
   }
-  oledLastActivity = millis(); // Resetear timeout OLED en cualquier botón
 }
 
 void updateLEDs() {
@@ -569,10 +575,10 @@ void updateLEDs() {
     digitalWrite(LED_RED_PIN, HIGH);
     digitalWrite(LED_GREEN_PIN, LOW);
     digitalWrite(LED_YELLOW_PIN, LOW);
-  } else if (currentMode == MODE_MANUAL_RUN || currentMode == MODE_MANUAL_SETUP) {
+  } else if (currentMode == MODE_MANUAL_RUN || currentMode == MODE_MANUAL_SETUP || currentMode == MODE_MANUAL_INFINITE) {
     digitalWrite(LED_RED_PIN, LOW);
     digitalWrite(LED_GREEN_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, HIGH); // Amarillo indica Manual
+    digitalWrite(LED_YELLOW_PIN, HIGH); // Amarillo indica Manual (incluye Infinito)
   } else { // AUTO
     digitalWrite(LED_RED_PIN, LOW);
     digitalWrite(LED_YELLOW_PIN, LOW);
@@ -597,7 +603,6 @@ void fatalError(String msg) {
   display.setCursor(0, 35);
   display.println(msg.substring(0, 16)); // Primeros 16 caracteres
   display.display();
-  oledOn = true;
   
   // LED rojo parpadea cada 500ms (señal de error)
   // pero la función retorna para que loop() siga ejecutando
@@ -609,32 +614,107 @@ void fatalError(String msg) {
 // -------------------------------------------------------------------------
 
 void drawAutoScreen() {
+  // MAINSCREEN: Pantalla principal animada para modo AUTO
   display.clearDisplay();
   
-  // Header
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("AUTO MODE");
+  // Animación de título con scroll
+  static unsigned long animationTime = 0;
+  static int scrollPos = 0;
   
-  // Icono o estado fan
-  display.setCursor(80,0);
-  display.print(fanRunning ? "FAN:ON" : "STBY");
-
-  // Datos Grandes
-  display.setTextSize(2);
-  display.setCursor(0, 15);
-  display.print(hum, 0); display.print("% ");
-  display.setCursor(64, 15);
-  display.print(temp, 0); display.print("C");
-
-  // Datos Secundarios
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.print("Air Q: "); display.print(airQuality);
+  if (millis() - animationTime > 500) {
+    animationTime = millis();
+    scrollPos = (scrollPos + 1) % 5;
+  }
   
-  // Footer
-  display.setCursor(0, 55);
-  display.print("Gire -> Manual");
+  // Título con scroll
+  display.setTextSize(1);
+  display.setCursor(scrollPos, 0);
+  display.print("EXTRACTOR TUNEADO BY RAUL");
+  
+  // Línea divisoria animada
+  display.setCursor(0, 10);
+  static unsigned long lineBlinkTime = 0;
+  static bool lineVisible = true;
+  
+  if (millis() - lineBlinkTime > 600) {
+    lineBlinkTime = millis();
+    lineVisible = !lineVisible;
+  }
+  
+  if (lineVisible) {
+    for (int i = 0; i < 21; i++) display.print("-");
+  } else {
+    for (int i = 0; i < 21; i++) display.print(" ");
+  }
+  
+  // Modo automático
+  display.setCursor(0, 20);
+  display.print("[AUTO] MODO AUTOMATICO");
+  
+  // Barra de velocidad actual
+  display.setTextSize(1);
+  int currentPercent = map(currentSpeed, 0, 255, 0, 100);
+  int barFill = map(currentPercent, 0, 100, 0, 18);
+  display.setCursor(0, 32);
+  display.print("[");
+  for (int i = 0; i < barFill; i++) display.print((char)254);
+  for (int i = barFill; i < 18; i++) display.print((char)176);
+  display.print("]");
+  display.print(currentPercent);
+  display.print("%");
+  
+  // Sensores en línea: T, H, Air
+  display.setCursor(0, 42);
+  display.print((char)42); display.print(" "); // ★
+  display.print("T:");
+  display.print((int)temp);
+  display.print((char)167); display.print(" "); // °
+  display.print("H:");
+  display.print((int)hum);
+  display.print("% Air:");
+  display.print(airQuality);
+  
+  // Estado aire con emoji animado
+  display.setCursor(0, 52);
+  
+  // Frame de animación (cambia cada 800ms)
+  static unsigned long emojiTime = 0;
+  static int emojiFrame = 0;
+  
+  if (millis() - emojiTime > 800) {
+    emojiTime = millis();
+    emojiFrame = (emojiFrame + 1) % 3; // 3 frames
+  }
+  
+  if (mq135_warmed) {
+    if (airQuality < 300) {
+      display.print("BUENA   ");
+      // Frames: ( ˘ ▽ ˘ ) -> ( ˘ ▽ ˘) -> (˘ ▽ ˘ )
+      if (emojiFrame == 0) display.print("( ˘ ▽ ˘ )");
+      else if (emojiFrame == 1) display.print("( ˘ ▽ ˘)");
+      else display.print("(˘ ▽ ˘ )");
+    } else if (airQuality < 600) {
+      display.print("REGULAR ");
+      // Frames: ¯\\_(ツ)_/¯ -> ¯\\_(ツ)_/¯ -> ¯\\_(ツ)_/¯ (ligera variación)
+      if (emojiFrame == 0) display.print("¯\\_(ツ)_/¯");
+      else if (emojiFrame == 1) display.print("¯\\_(ツ)_/¯");
+      else display.print(" ¯\\_(ツ)_/¯");
+    } else if (airQuality < 900) {
+      display.print("MALA    ");
+      // Frames: (×_×#) -> (×_×) -> (×_×#)
+      if (emojiFrame == 0) display.print("(×_×#)");
+      else if (emojiFrame == 1) display.print("(×_×)");
+      else display.print(" (×_×#)");
+    } else {
+      display.print("CRITICA ");
+      // Parpadeo rápido
+      if (emojiFrame == 0) display.print("(X_X)!!");
+      else if (emojiFrame == 1) display.print("(X_X)");
+      else display.print("(X_X)!!");
+    }
+  } else {
+    display.print("CALENT. [...]");
+  }
   
   display.display();
 }
@@ -660,9 +740,15 @@ void drawManualSetupScreen() {
   display.setCursor(10, 45);
   display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
   display.println(manualNightModeSelected ? "SI" : "NO");
+  
+  display.setCursor(10, 55);
+  display.print(menuStep == 4 ? "> Broma:  " : "  Broma:  ");
+  // 0=Normal, 1=Conguitos, 2=Serpentina, 3=Morcilla
+  if (manualBromaMode == 1) display.println("Conguitos");
+  else if (manualBromaMode == 2) display.println("Serpentin");
+  else if (manualBromaMode == 3) display.println("Morcilla");
+  else display.println("Normal");
 
-  display.setCursor(0, 60);
-  display.print("Click=OK Back=Auto");
   display.display();
 }
 
@@ -686,25 +772,23 @@ void drawManualRunScreen() {
 }
 
 void drawManualInfiniteScreen() {
-  // Pantalla Dashboard para modo manual infinito
+  // Modo INFINITO: Permite ajustar velocidad girando encoder
   display.clearDisplay();
   
-  // Animación de título: "EXTRACTOR TUNEADO" + "BY RAUL" con efecto de deslizamiento suave
+  // Animación de título
   static unsigned long animationTime = 0;
   static int scrollPos = 0;
   
-  // Cambiar posición cada 500ms (más lento = más elegante)
   if (millis() - animationTime > 500) {
     animationTime = millis();
-    scrollPos = (scrollPos + 1) % 5; // 5 posiciones de scroll
+    scrollPos = (scrollPos + 1) % 5;
   }
   
-  // Título principal con efecto de desplazamiento - "EXTRACTOR TUNEADO BY RAUL"
   display.setTextSize(1);
   display.setCursor(scrollPos, 0);
   display.print("EXTRACTOR TUNEADO BY RAUL");
   
-  // Línea divisoria animada (parpadea suavemente)
+  // Línea divisoria animada
   display.setCursor(0, 10);
   static unsigned long lineBlinkTime = 0;
   static bool lineVisible = true;
@@ -720,52 +804,66 @@ void drawManualInfiniteScreen() {
     for (int i = 0; i < 21; i++) display.print(" ");
   }
   
-  // Modo infinito debajo del título
+  // Modo infinito
   display.setCursor(0, 20);
   display.print("[");
-  display.print((char)236);  // ∞ Infinito
+  display.print((char)236);  // ∞
   display.print("] MANUAL INFINITO");
   
-  // Barra de velocidad con % a la derecha
+  // Barra de velocidad AJUSTABLE (gire encoder)
   display.setTextSize(1);
   int barFill = map(manualSpeedSel, 0, 100, 0, 18);
   display.setCursor(0, 32);
   display.print("[");
-  for (int i = 0; i < barFill; i++) display.print((char)254);      // █ Lleno
-  for (int i = barFill; i < 18; i++) display.print((char)176);     // ░ Vacío
+  for (int i = 0; i < barFill; i++) display.print((char)254);
+  for (int i = barFill; i < 18; i++) display.print((char)176);
   display.print("]");
   display.print(manualSpeedSel);
   display.print("%");
   
-  // Info sensores: Temperatura, Humedad
+  // Sensores: T, H, Air
   display.setCursor(0, 42);
-  display.print((char)42); display.print(" ");  // ★
+  display.print((char)42); display.print(" ");
   display.print("T:");
   display.print((int)temp);
-  display.print((char)167);  // °
-  display.print(" H:");
+  display.print((char)167); display.print(" ");
+  display.print("H:");
   display.print((int)hum);
-  display.print("%");
+  display.print("% Air:");
+  display.print(airQuality);
   
-  // Indicadores ASCII de Calidad del Aire en la línea donde estaba "BY RAUL"
-  // Representan: BUENA / REGULAR / MALA / CRÍTICA
+  // Estado aire con emoji animado
   display.setCursor(0, 52);
-  display.print("Aire: ");
   
-  // Emoji ASCII compuesto según calidad
+  static unsigned long emojiTime = 0;
+  static int emojiFrame = 0;
+  
+  if (millis() - emojiTime > 800) {
+    emojiTime = millis();
+    emojiFrame = (emojiFrame + 1) % 3;
+  }
+  
   if (mq135_warmed) {
     if (airQuality < 300) {
       display.print("BUENA   ");
-      display.print("[*_*]"); // Sonrisa feliz
+      if (emojiFrame == 0) display.print("( ˘ ▽ ˘ )");
+      else if (emojiFrame == 1) display.print("( ˘ ▽ ˘)");
+      else display.print("(˘ ▽ ˘ )");
     } else if (airQuality < 600) {
       display.print("REGULAR ");
-      display.print("[-_-]"); // Cara neutral
+      if (emojiFrame == 0) display.print("¯\\_(ツ)_/¯");
+      else if (emojiFrame == 1) display.print("¯\\_(ツ)_/¯");
+      else display.print(" ¯\\_(ツ)_/¯");
     } else if (airQuality < 900) {
       display.print("MALA    ");
-      display.print("[o_o]"); // Sorpresa/Preocupación
+      if (emojiFrame == 0) display.print("(×_×#)");
+      else if (emojiFrame == 1) display.print("(×_×)");
+      else display.print(" (×_×#)");
     } else {
       display.print("CRITICA ");
-      display.print("[X_X]"); // Alarma crítica
+      if (emojiFrame == 0) display.print("(X_X)!!");
+      else if (emojiFrame == 1) display.print("(X_X)");
+      else display.print("(X_X)!!");
     }
   } else {
     display.print("CALENT. [...]");
