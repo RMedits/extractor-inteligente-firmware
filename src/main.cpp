@@ -120,6 +120,7 @@ bool mq135_warmed = false;
 int mq135_baseline = 400;           // Baseline inicial (aire relativo limpio)
 unsigned long oledLastActivity = 0; // Timeout OLED
 bool oledOn = true;                 // Estado OLED
+String lastErrorMessage = "ERROR";
 
 // Home Assistant Integration (futuro)
 bool nightModeEnabled = false;      // Modo noche: activable desde HA
@@ -141,6 +142,8 @@ void drawManualSetupScreen();
 void drawManualRunScreen();
 void drawManualInfiniteScreen();
 void drawPauseScreen();
+void drawErrorScreen();
+void drawBaseLayout(const char *titleText, const char *modeLabel, int barPercent, const char *line42, const char *line52);
 
 // -------------------------------------------------------------------------
 // --- SETUP ---
@@ -300,7 +303,7 @@ void loop() {
       setFanSpeed(0); // Apagar completamente en error
       // fatalError() ya muestra LED rojo
       if (oledOn) {
-        display.display(); // Mantener error visible
+        drawErrorScreen();
       }
       break;
   }
@@ -587,17 +590,10 @@ void fatalError(String msg) {
   digitalWrite(LED_GREEN_PIN, LOW);
   setFanSpeed(0); // Apagar ventilador
   currentMode = MODE_ERROR;
+  lastErrorMessage = msg;
   
-  // Mostrar error en OLED
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 10);
-  display.println("ERROR!");
-  display.setTextSize(1);
-  display.setCursor(0, 35);
-  display.println(msg.substring(0, 16)); // Primeros 16 caracteres
-  display.display();
   oledOn = true;
+  drawErrorScreen();
   
   // LED rojo parpadea cada 500ms (señal de error)
   // pero la función retorna para que loop() siga ejecutando
@@ -609,178 +605,187 @@ void fatalError(String msg) {
 // -------------------------------------------------------------------------
 
 void drawAutoScreen() {
-  display.clearDisplay();
-  
-  // Header
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("AUTO MODE");
-  
-  // Icono o estado fan
-  display.setCursor(80,0);
-  display.print(fanRunning ? "FAN:ON" : "STBY");
+  char modeLabel[22];
+  snprintf(modeLabel, sizeof(modeLabel), "AUTO %s", fanRunning ? "FAN:ON" : "STBY");
 
-  // Datos Grandes
-  display.setTextSize(2);
-  display.setCursor(0, 15);
-  display.print(hum, 0); display.print("% ");
-  display.setCursor(64, 15);
-  display.print(temp, 0); display.print("C");
+  char line42[32];
+  snprintf(line42, sizeof(line42), "%c T:%d%c H:%d%%", (char)42, (int)temp, (char)167, (int)hum);
 
-  // Datos Secundarios
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.print("Air Q: "); display.print(airQuality);
-  
-  // Footer
-  display.setCursor(0, 55);
-  display.print("Gire -> Manual");
-  
-  display.display();
+  char line52[32];
+  if (mq135_warmed) {
+    if (airQuality < 300) {
+      snprintf(line52, sizeof(line52), "Aire: BUENA [*_*]");
+    } else if (airQuality < 600) {
+      snprintf(line52, sizeof(line52), "Aire: REGUL [-_-]");
+    } else if (airQuality < 900) {
+      snprintf(line52, sizeof(line52), "Aire: MALA  [o_o]");
+    } else {
+      snprintf(line52, sizeof(line52), "Aire: CRIT [X_X]");
+    }
+  } else {
+    snprintf(line52, sizeof(line52), "Aire: CALENT. [...]");
+  }
+
+  int speedPercent = map(currentSpeed, 0, 255, 0, 100);
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", modeLabel, speedPercent, line42, line52);
 }
 
 void drawManualSetupScreen() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("CONFIG MANUAL");
-  
-  display.setCursor(10, 15);
-  display.print(menuStep == 0 ? "> Tiempo: " : "  Tiempo: ");
-  display.print(manualTimeSel); display.println(" min");
-  
-  display.setCursor(10, 25);
-  display.print(menuStep == 1 ? "> Veloc:  " : "  Veloc:  ");
-  display.print(manualSpeedSel); display.println(" %");
-  
-  display.setCursor(10, 35);
-  display.print(menuStep == 2 ? "> Modo:   " : "  Modo:   ");
-  display.println(manualInfiniteSelected ? "Infinito" : "Limitado");
+  char line42[32];
+  switch (menuStep) {
+    case 0:
+      snprintf(line42, sizeof(line42), "> Tiempo: %d min", manualTimeSel);
+      break;
+    case 1:
+      snprintf(line42, sizeof(line42), "> Veloc:  %d%%", manualSpeedSel);
+      break;
+    case 2:
+      snprintf(line42, sizeof(line42), "> Modo: %s", manualInfiniteSelected ? "Infinito" : "Limitado");
+      break;
+    case 3:
+      snprintf(line42, sizeof(line42), "> Noche: %s", manualNightModeSelected ? "SI" : "NO");
+      break;
+    default:
+      snprintf(line42, sizeof(line42), "> Confirmar ajustes");
+      break;
+  }
 
-  display.setCursor(10, 45);
-  display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
-  display.println(manualNightModeSelected ? "SI" : "NO");
+  char line52[32];
+  snprintf(line52, sizeof(line52), "Click=OK Back=Auto");
 
-  display.setCursor(0, 60);
-  display.print("Click=OK Back=Auto");
-  display.display();
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", "CONFIG MANUAL", manualSpeedSel, line42, line52);
 }
 
 void drawManualRunScreen() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("MANUAL RUNNING");
-
   long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000; // USAR fanTimerStart
   
-  display.setTextSize(2);
-  display.setCursor(15, 20);
-  display.print(remaining); display.print(" min");
-  
-  display.setTextSize(1);
-  display.setCursor(30, 45);
-  display.print("Vel: "); display.print(manualSpeedSel); display.print("% ");
+  char line42[32];
+  snprintf(line42, sizeof(line42), "Tiempo: %ld min", remaining);
 
-  display.display();
+  char line52[32];
+  if (mq135_warmed) {
+    if (airQuality < 300) {
+      snprintf(line52, sizeof(line52), "Aire: BUENA [*_*]");
+    } else if (airQuality < 600) {
+      snprintf(line52, sizeof(line52), "Aire: REGUL [-_-]");
+    } else if (airQuality < 900) {
+      snprintf(line52, sizeof(line52), "Aire: MALA  [o_o]");
+    } else {
+      snprintf(line52, sizeof(line52), "Aire: CRIT [X_X]");
+    }
+  } else {
+    snprintf(line52, sizeof(line52), "Aire: CALENT. [...]");
+  }
+
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", "MANUAL RUN", manualSpeedSel, line42, line52);
 }
 
 void drawManualInfiniteScreen() {
   // Pantalla Dashboard para modo manual infinito
+  char modeLabel[26];
+  snprintf(modeLabel, sizeof(modeLabel), "[%c] MANUAL INFINITO", (char)236);
+
+  char line42[32];
+  snprintf(line42, sizeof(line42), "%c T:%d%c H:%d%%", (char)42, (int)temp, (char)167, (int)hum);
+
+  char line52[32];
+  if (mq135_warmed) {
+    if (airQuality < 300) {
+      snprintf(line52, sizeof(line52), "Aire: BUENA [*_*]");
+    } else if (airQuality < 600) {
+      snprintf(line52, sizeof(line52), "Aire: REGUL [-_-]");
+    } else if (airQuality < 900) {
+      snprintf(line52, sizeof(line52), "Aire: MALA  [o_o]");
+    } else {
+      snprintf(line52, sizeof(line52), "Aire: CRIT [X_X]");
+    }
+  } else {
+    snprintf(line52, sizeof(line52), "Aire: CALENT. [...]");
+  }
+
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", modeLabel, manualSpeedSel, line42, line52);
+}
+
+void drawPauseScreen() {
+  char line42[32];
+  snprintf(line42, sizeof(line42), "Mantener btn PAUSA");
+
+  char line52[32];
+  snprintf(line52, sizeof(line52), "para reanudar");
+
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", "PAUSADO", 0, line42, line52);
+}
+
+void drawErrorScreen() {
+  char line42[32];
+  snprintf(line42, sizeof(line42), "%s", lastErrorMessage.substring(0, 16).c_str());
+
+  char line52[32];
+  snprintf(line52, sizeof(line52), "Revisar sensores");
+
+  drawBaseLayout("EXTRACTOR TUNEADO BY RAUL", "ERROR", 0, line42, line52);
+}
+
+void drawBaseLayout(const char *titleText, const char *modeLabel, int barPercent, const char *line42, const char *line52) {
   display.clearDisplay();
-  
+
   // Animación de título: "EXTRACTOR TUNEADO" con efecto de deslizamiento suave
   static unsigned long animationTime = 0;
   static int scrollPos = 0;
-  
+
   // Cambiar posición cada 500ms (más lento = más elegante)
   if (millis() - animationTime > 500) {
     animationTime = millis();
     scrollPos = (scrollPos + 1) % 5; // 5 posiciones de scroll
   }
-  
-  // Título principal con efecto de desplazamiento - "EXTRACTOR TUNEADO BY RAUL"
+
+  // Título principal con efecto de desplazamiento
   display.setTextSize(1);
   display.setCursor(scrollPos, 0);
-  display.print("EXTRACTOR TUNEADO BY RAUL");
-  
+  display.print(titleText);
+
   // Línea divisoria animada (parpadea suavemente)
   display.setCursor(0, 10);
   static unsigned long lineBlinkTime = 0;
   static bool lineVisible = true;
-  
+
   if (millis() - lineBlinkTime > 600) {
     lineBlinkTime = millis();
     lineVisible = !lineVisible;
   }
-  
-  if (lineVisible) {
-    for (int i = 0; i < 21; i++) display.print("-");
-  } else {
-    for (int i = 0; i < 21; i++) display.print(" ");
+
+  for (int i = 0; i < 21; i++) {
+    display.print(lineVisible ? "-" : " ");
   }
-  
-  // Modo infinito debajo del título
+
+  // Sección de datos
   display.setCursor(0, 20);
-  display.print("[");
-  display.print((char)236);  // ∞ Infinito
-  display.print("] MANUAL INFINITO");
-  
-  // Barra de velocidad con % a la derecha
-  display.setTextSize(1);
-  int barFill = map(manualSpeedSel, 0, 100, 0, 18);
+  display.print(modeLabel);
+
+  int clampedPercent = barPercent;
+  if (clampedPercent < 0) {
+    clampedPercent = 0;
+  } else if (clampedPercent > 100) {
+    clampedPercent = 100;
+  }
+  int barFill = map(clampedPercent, 0, 100, 0, 18);
   display.setCursor(0, 32);
   display.print("[");
   for (int i = 0; i < barFill; i++) display.print((char)254);      // █ Lleno
   for (int i = barFill; i < 18; i++) display.print((char)176);     // ░ Vacío
   display.print("]");
-  display.print(manualSpeedSel);
+  display.print(clampedPercent);
   display.print("%");
-  
-  // Info sensores: Temperatura, Humedad
-  display.setCursor(0, 42);
-  display.print((char)42); display.print(" ");  // ★
-  display.print("T:");
-  display.print((int)temp);
-  display.print((char)167);  // °
-  display.print(" H:");
-  display.print((int)hum);
-  display.print("%");
-  
-  // Indicadores ASCII de Calidad del Aire en la línea donde estaba "BY RAUL"
-  // Representan: BUENA / REGULAR / MALA / CRÍTICA
-  display.setCursor(0, 52);
-  display.print("Aire: ");
-  
-  // Emoji ASCII compuesto según calidad
-  if (mq135_warmed) {
-    if (airQuality < 300) {
-      display.print("BUENA   ");
-      display.print("[*_*]"); // Sonrisa feliz
-    } else if (airQuality < 600) {
-      display.print("REGULAR ");
-      display.print("[-_-]"); // Cara neutral
-    } else if (airQuality < 900) {
-      display.print("MALA    ");
-      display.print("[o_o]"); // Sorpresa/Preocupación
-    } else {
-      display.print("CRITICA ");
-      display.print("[X_X]"); // Alarma crítica
-    }
-  } else {
-    display.print("CALENT. [...]");
-  }
-  
-  display.display();
-}
 
-void drawPauseScreen() {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 20);
-  display.print("PAUSADO");
-  display.setTextSize(1);
-  display.setCursor(10, 45);
-  display.print("Mantener btn PAUSA");
+  if (line42 && line42[0] != '\0') {
+    display.setCursor(0, 42);
+    display.print(line42);
+  }
+
+  if (line52 && line52[0] != '\0') {
+    display.setCursor(0, 52);
+    display.print(line52);
+  }
+
   display.display();
 }
