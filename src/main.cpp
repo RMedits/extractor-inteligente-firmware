@@ -65,6 +65,8 @@
 #define MQ135_WARMUP_TIME 30000 // ms (30 seg) precalentamiento mínimo
 #define I2C_RETRY_TIMES   3     // reintentos en lectura I2C
 #define SENSOR_READ_INTERVAL 2000 // ms entre lecturas de sensores
+#define DISPLAY_REFRESH_RATE 33   // ms (~30 FPS) para evitar saturar I2C
+#define BUTTON_POLL_INTERVAL 5    // ms para muestreo estable de botones
 
 // -------------------------------------------------------------------------
 // --- OBJETOS GLOBALES ---
@@ -102,6 +104,8 @@ int manualBromaMode = 0; // 0=Normal, 1=Conguitos(30%), 2=Serpentina(55%), 3=Mor
 // Variables Botones/Encoder (con debounce por muestreo)
 long oldEncPos = 0;
 unsigned long lastButtonPress = 0;
+unsigned long lastButtonCheck = 0;  // Control de frecuencia de muestreo
+unsigned long lastDisplayUpdate = 0; // Control de framerate OLED
 unsigned long bakButtonPressStart = 0;
 bool bakButtonHeld = false;
 int encoderSwitchSamples = 0;      // Muestreo: contador de muestras LOW
@@ -231,7 +235,13 @@ void setup() {
 void loop() {
   esp_task_wdt_reset(); // Alimentar al perro guardián
   readSensors();
-  checkButtons();
+
+  // Control de frecuencia de muestreo de botones (estabilidad debounce)
+  if (millis() - lastButtonCheck >= BUTTON_POLL_INTERVAL) {
+    checkButtons();
+    lastButtonCheck = millis();
+  }
+
   updateFanSpeedRamp(); // Ejecutar rampa PWM no-bloqueante
   
   // NOTA DISEÑO: La pantalla OLED permanece SIEMPRE ENCENDIDA.
@@ -247,21 +257,28 @@ void loop() {
       lastErrorBlink = millis();
     }
   }
+
+  // Control de Framerate Display (~30 FPS)
+  bool updateDisplay = false;
+  if (millis() - lastDisplayUpdate >= DISPLAY_REFRESH_RATE) {
+    updateDisplay = true;
+    lastDisplayUpdate = millis();
+  }
   
   switch (currentMode) {
     case MODE_AUTO:
       runAutoLogic();
-      drawAutoScreen();
+      if (updateDisplay) drawAutoScreen();
       break;
 
     case MODE_MANUAL_SETUP:
       runManualSetup();
-      drawManualSetupScreen();
+      if (updateDisplay) drawManualSetupScreen();
       break;
 
     case MODE_MANUAL_RUN:
       runManualLogic();
-      drawManualRunScreen();
+      if (updateDisplay) drawManualRunScreen();
       break;
 
     case MODE_MANUAL_INFINITE: {
@@ -272,19 +289,20 @@ void loop() {
       }
       int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
       setFanSpeed(pwmVal);
-      drawManualInfiniteScreen();
+      if (updateDisplay) drawManualInfiniteScreen();
       break;
     }
 
     case MODE_PAUSE:
       // Ventilador apagado, esperar reanudar
       setFanSpeed(0);
-      drawPauseScreen();
+      if (updateDisplay) drawPauseScreen();
       break;
       
     case MODE_ERROR:
       setFanSpeed(0); // Apagar completamente en error
       // fatalError() ya muestra LED rojo y pantalla de error
+      // No redibujamos continuamente en ERROR para no saturar si no cambia
       break;
   }
   
