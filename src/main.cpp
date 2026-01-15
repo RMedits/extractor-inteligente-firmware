@@ -156,6 +156,21 @@ void setup() {
   pinMode(LED_YELLOW_PIN, OUTPUT);
   pinMode(LED_GREEN_PIN, OUTPUT);
   
+  // TEST LEDs al inicio - parpadeo para verificar conexión
+  Serial.println("TEST LEDs...");
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(LED_RED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_RED_PIN, LOW);
+    digitalWrite(LED_YELLOW_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_YELLOW_PIN, LOW);
+    digitalWrite(LED_GREEN_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_GREEN_PIN, LOW);
+  }
+  Serial.println("TEST LEDs OK");
+  
   pinMode(ENCODER_SW_PIN, INPUT_PULLUP);
   pinMode(CONFIRM_BUTTON_PIN, INPUT_PULLUP);
   pinMode(BAK_BUTTON_PIN, INPUT_PULLUP);
