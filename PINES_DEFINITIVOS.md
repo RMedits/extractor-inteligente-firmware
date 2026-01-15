@@ -44,6 +44,16 @@
 | **5** | AMARILLO | Manual/Advertencia |
 | **17** | VERDE | Normal/Funcionamiento |
 
+### 📡 Sensor Radar LD2410 (24GHz) - RESERVADO
+| GPIO | Función | Conexión |
+|------|---------|----------|
+| **14** | LD2410_RX | TX del sensor → RX ESP32 |
+| **15** | LD2410_TX | RX del sensor → TX ESP32 |
+| **23** | LD2410_OUT | Salida digital detección |
+| **26** | LD2410_EN | Enable/Control (opcional) |
+
+> **Nota:** LD2410 usa comunicación UART (Serial). Pines reservados para implementación futura.
+
 ---
 
 ## 🔗 Alimentación
@@ -68,13 +78,14 @@ Las conexiones son **directamente a los GPIO** del ESP32 mediante cables dupont 
 
 ## 🚫 Pines Prohibidos (No Usar)
 
-| GPIO | Razón |
-|------|-------|
-| **14** | Inestable durante boot |
-| **12** | Conflicto con FLASH (strapping pin) |
-| **15** | Conflicto con boot (strapping pin) |
-| **0** | Boot Mode (strapping pin) |
-| **2** | LED interno ESP32 |
+| GPIO | Razón | Estado Actual |
+|------|-------|---------------|
+| **0** | Boot Mode (strapping pin) | Evitar |
+| **2** | LED interno ESP32 | Evitar |
+| **12** | Conflicto con FLASH (strapping pin) | Evitar |
+| **35** | Solo entrada (sin pull-up interno) | Libre |
+| **36** | Solo entrada (sin pull-up interno) | Libre |
+| **39** | Solo entrada (sin pull-up interno) | Libre |
 
 ---
 
@@ -105,6 +116,12 @@ Las conexiones son **directamente a los GPIO** del ESP32 mediante cables dupont 
 #define LED_RED_PIN 18
 #define LED_YELLOW_PIN 5
 #define LED_GREEN_PIN 17
+
+// Radar LD2410 (24GHz) - RESERVADO
+#define LD2410_RX_PIN 14  // RX del ESP32 (conectar a TX del sensor)
+#define LD2410_TX_PIN 15  // TX del ESP32 (conectar a RX del sensor)
+#define LD2410_OUT_PIN 23 // Detección digital
+#define LD2410_EN_PIN 26  // Enable/Control (opcional)
 ```
 
 ---
@@ -147,11 +164,12 @@ Esta configuración ha sido probada exhaustivamente. Cualquier cambio debe:
 
 | Fecha | Versión | Cambio |
 |-------|---------|--------|
+| 16-01-2026 | v1.0 | Reservados pines 14,15,23,26 para LD2410 (radar 24GHz) |
 | 15-01-2026 | v7.2C | Documento creado - Configuración definitiva sin shield |
 
 ---
 
-**Versión del Firmware:** v7.2C  
+**Versión del Firmware:** v1.0-hardware-validado + pantallas  
 **Hardware:** ESP32-WROOM-32 (30 pines)  
 **Estado:** ✅ PRODUCCIÓN  
 **Autor:** RAUL

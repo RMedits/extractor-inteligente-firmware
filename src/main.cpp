@@ -52,9 +52,155 @@ volatile unsigned long tachPulseCount = 0;
 unsigned long lastTachCheck = 0;
 int fanRPM = 0;
 
+// Variables sensores (globales para acceso desde pantallas)
+float temperatura = 0;
+float humedad = 0;
+float presion = 0;
+int calidadAire = 0;
+
 // ISR para tacógrafo
 void IRAM_ATTR tachISR() {
   tachPulseCount++;
+}
+
+// ============ FUNCIONES DE PANTALLAS ============
+
+void drawPantallaPrincipal() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  
+  // Título
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.println("EXTRACTOR");
+  
+  display.setTextSize(1);
+  display.println("");
+  
+  // Datos principales
+  display.print("Temp: ");
+  display.print(temperatura, 1);
+  display.println(" C");
+  
+  display.print("Hum:  ");
+  display.print((int)humedad);
+  display.println(" %");
+  
+  display.print("Aire: ");
+  display.println(calidadAire);
+  
+  // Indicador de pantalla
+  display.setCursor(110, 56);
+  display.print("1/4");
+  
+  display.display();
+}
+
+void drawPantallaTemperatura() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  
+  // Título
+  display.setCursor(0, 0);
+  display.println("TEMPERATURA");
+  display.println("----------");
+  
+  // Temperatura grande
+  display.setTextSize(3);
+  display.setCursor(10, 18);
+  display.print(temperatura, 1);
+  display.setTextSize(2);
+  display.print("C");
+  
+  // Humedad y Presión en posiciones fijas
+  display.setTextSize(1);
+  display.setCursor(0, 42);
+  display.print("Humedad: ");
+  display.print((int)humedad);
+  display.println("%");
+  
+  display.setCursor(0, 51);
+  display.print("Presion: ");
+  display.print(presion, 0);
+  display.print("hPa");
+  
+  // Indicador
+  display.setCursor(110, 56);
+  display.print("2/4");
+  
+  display.display();
+}
+
+void drawPantallaCalidadAire() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  
+  display.setCursor(0, 0);
+  display.println("CALIDAD AIRE");
+  display.println("----------");
+  
+  // Valor MQ135
+  display.setTextSize(3);
+  display.setCursor(20, 20);
+  display.println(calidadAire);
+  
+  // Evaluación
+  display.setTextSize(1);
+  display.print("Estado: ");
+  if (calidadAire < 400) {
+    display.println("BUENO");
+  } else if (calidadAire < 1000) {
+    display.println("MEDIO");
+  } else {
+    display.println("MALO");
+  }
+  
+  // Referencia (solo una línea)
+  display.println("");
+  display.println("<400:OK  >1K:Malo");
+  
+  display.setCursor(110, 56);
+  display.print("3/4");
+  
+  display.display();
+}
+
+void drawPantallaSistema() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  
+  display.setCursor(0, 0);
+  display.println("SISTEMA");
+  display.println("----------");
+  
+  // Estados LEDs
+  display.print("Verde:  ");
+  display.println(ventiladorActivo ? "ON " : "OFF");
+  
+  display.print("Amarillo: ");
+  display.println(ledAmarilloState ? "ON " : "OFF");
+  
+  display.print("Rojo:   ");
+  display.println(ledRojoState ? "ON " : "OFF");
+  
+  display.println("");
+  
+  // Encoder
+  display.print("Encoder: ");
+  display.println(encoder.getCount() / 2);
+  
+  // RPM ventilador
+  display.print("RPM: ");
+  display.println(fanRPM);
+  
+  display.setCursor(110, 56);
+  display.print("4/4");
+  
+  display.display();
 }
 
 void setup() {
@@ -134,6 +280,22 @@ void loop() {
   if (millis() - lastUpdate > 200) {
     lastUpdate = millis();
 
+    // -- NAVEGACIÓN CON ENCODER --
+    long currentEncoderValue = encoder.getCount() / 2;
+    if (currentEncoderValue != lastEncoderValue) {
+      int diff = currentEncoderValue - lastEncoderValue;
+      pantallaActual += diff;
+      
+      // Circular: volver al inicio o al final
+      if (pantallaActual < 0) pantallaActual = NUM_PANTALLAS - 1;
+      if (pantallaActual >= NUM_PANTALLAS) pantallaActual = 0;
+      
+      Serial.print("Pantalla: ");
+      Serial.println(pantallaActual);
+      
+      lastEncoderValue = currentEncoderValue;
+    }
+
     // -- LECTURA DE BOTONES --
     bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
     bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
@@ -190,58 +352,35 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    float temp = 0, hum = 0;
-    int mq135 = 0;
-    long encVal = encoder.getCount() / 2;
-
     // Intentar leer AHT20
     sensors_event_t h, t;
     if (aht.getEvent(&h, &t)) {
       if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temp = t.temperature;
-        hum = h.relative_humidity;
+        temperatura = t.temperature;
+        humedad = h.relative_humidity;
       }
     }
     
+    // Leer BMP280 (presión)
+    presion = bmp.readPressure() / 100.0F; // convertir a hPa
+    
     // Leer MQ135
-    mq135 = analogRead(MQ135_ANALOG_PIN);
+    calidadAire = analogRead(MQ135_ANALOG_PIN);
 
-    // -- ACTUALIZAR PANTALLA --
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SH110X_WHITE);
-    display.setCursor(0, 0);
-    
-    // Fila 1: Temp y Humedad
-    display.print("T:");
-    if (temp > 0) {
-      display.print(temp, 1);
-    } else {
-      display.print("--");
+    // -- DIBUJAR PANTALLA ACTUAL --
+    switch (pantallaActual) {
+      case 0:
+        drawPantallaPrincipal();
+        break;
+      case 1:
+        drawPantallaTemperatura();
+        break;
+      case 2:
+        drawPantallaCalidadAire();
+        break;
+      case 3:
+        drawPantallaSistema();
+        break;
     }
-    display.print(" H:");
-    if (hum > 0) {
-      display.print((int)hum);
-    } else {
-      display.print("--");
-    }
-    display.println("%");
-    
-    // Fila 2: MQ135 y RPM
-    display.print("Air:"); display.print(mq135);
-    display.print(" RPM:"); display.println(fanRPM);
-
-    // Fila 3: Encoder
-    display.print("Enc:"); display.println(encVal);
-
-    // Fila 4: Divisor
-    display.println("----");
-    
-    // Fila 5: Estado Botones/LEDs
-    display.print("G:"); display.print(ventiladorActivo ? "ON" : ".");
-    display.print(" Y:"); display.print(ledAmarilloState ? "ON" : ".");
-    display.print(" R:"); display.println(btnPausa ? "ON" : ".");
-    
-    display.display();
   }
 }
