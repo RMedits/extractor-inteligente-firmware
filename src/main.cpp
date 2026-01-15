@@ -1,899 +1,247 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_SH110X.h>
 #include <Adafruit_AHTX0.h>
 #include <Adafruit_BMP280.h>
 #include <ESP32Encoder.h>
 #include <Arduino.h>
-#include <esp_task_wdt.h>
 
-// -------------------------------------------------------------------------
-// --- CONFIGURACIÓN DE PINES (FINAL v7.1C - ESP32 30 PINES) ---
-// -------------------------------------------------------------------------
+// --- PINOUT DEFINITIVO (PANTALLA OK + LEDS SEGUROS) ---
+#define I2C_SDA_PIN 21
+#define I2C_SCL_PIN 22
+#define ENCODER_CLK_PIN 32
+#define ENCODER_DT_PIN 33
+#define ENCODER_SW_PIN 27
+#define CONFIRM_BUTTON_PIN 25
+#define BAK_BUTTON_PIN 13
+#define MQ135_ANALOG_PIN 34
+#define PWM_FAN_PIN 19
+#define FAN_TACH_PIN 16
 
-// I2C (OLED + Sensores)
-#define I2C_SDA_PIN       21
-#define I2C_SCL_PIN       22
+// --- LEDS EN PINES SEGUROS (LOS QUE PROBAMOS AL FINAL) ---
+#define LED_RED_PIN     18  // Rojo
+#define LED_YELLOW_PIN  5   // Amarillo
+#define LED_GREEN_PIN   17  // Verde (lógica invertida)
 
-// Encoder Rotativo
-#define ENCODER_CLK_PIN   32
-#define ENCODER_DT_PIN    33
-#define ENCODER_SW_PIN    27  // Botón del eje (OK/Seleccionar)
+// --- CONFIGURACION OLED SH1106 (1.3 pulgadas) ---
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define SCREEN_ADDRESS 0x3C
 
-// Botones Físicos Extra
-#define CONFIRM_BUTTON_PIN 25 // Botón Lateral 1 (BACK/Cancelar)
-#define BAK_BUTTON_PIN    13  // Botón Lateral 2 (PAUSA/Emergencia) - MOVIDO AL 13 (Pin 26 dañado)
+Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Actuadores
-// El control de potencia se realiza con un MOSFET, pilotado por la salida PWM
-// `PWM_FAN_PIN` (no se usa relé físico).
-#define PWM_FAN_PIN       19  // Control de velocidad (PWM al ventilador / gate MOSFET)
-#define FAN_TACH_PIN      16  // Lectura de RPM (Cable Amarillo) - PREPARADO PARA FUTURO
-
-// Sensores Analógicos
-#define MQ135_ANALOG_PIN  34  // Entrada analógica (Input Only)
-
-// LEDs de Estado
-#define LED_RED_PIN       18  // Error / Standby
-#define LED_YELLOW_PIN    12  // Advertencia / Modo Manual - GPIO 12 (seguro, no interfiere FLASH)
-#define LED_GREEN_PIN     17  // Funcionamiento Normal
-
-// -------------------------------------------------------------------------
-// --- CONFIGURACIÓN DEL SISTEMA ---
-// -------------------------------------------------------------------------
-#define PWM_FREQ          25000 // 25kHz (Estándar ventiladores PC/Industriales)
-#define PWM_RES           8     // 8 bits (0-255)
-#define PWM_CHANNEL       0
-
-#define SCREEN_WIDTH      128
-#define SCREEN_HEIGHT     64
-#define OLED_RESET        -1
-#define SCREEN_ADDRESS    0x3C
-
-// Umbrales Automáticos (Histéresis simple)
-#define HUMIDITY_HIGH     70.0  // 100% velocidad
-#define HUMIDITY_MED      60.0  // 70% velocidad
-#define TEMP_HIGH         30.0  // 60% velocidad
-#define AIR_BAD           600   // 40% velocidad (Valor RAW analógico)
-
-// Tiempos
-#define DEBOUNCE_DELAY    50    // ms (más corto, debounce por muestreo)
-#define PAUSE_HOLD_TIME   2000  // ms para activar pausa
-#define PWM_RAMP_STEP     5     // ms entre pasos de rampa PWM (suave)
-#define PWM_RAMP_DELTA    10    // cambio máximo de PWM por paso
-// NOTA: OLED siempre encendida (sin timeout) - usar elementos dinámicos anti burn-in
-#define MQ135_WARMUP_TIME 30000 // ms (30 seg) precalentamiento mínimo
-#define I2C_RETRY_TIMES   3     // reintentos en lectura I2C
-#define SENSOR_READ_INTERVAL 2000 // ms entre lecturas de sensores
-
-// -------------------------------------------------------------------------
-// --- OBJETOS GLOBALES ---
-// -------------------------------------------------------------------------
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+// --- OBJETOS SENSORES ---
 Adafruit_AHTX0 aht;
 Adafruit_BMP280 bmp;
 ESP32Encoder encoder;
 
-// -------------------------------------------------------------------------
-// --- VARIABLES DE ESTADO ---
-// -------------------------------------------------------------------------
-enum SystemMode { MODE_AUTO, MODE_MANUAL_SETUP, MODE_MANUAL_RUN, MODE_MANUAL_INFINITE, MODE_PAUSE, MODE_ERROR };
-SystemMode currentMode = MODE_AUTO;
-enum SensorState { SENSOR_OK, SENSOR_DEGRADED, SENSOR_FAILED };
-SensorState sensorState = SENSOR_OK;
+// Variables de estado
+bool ventiladorActivo = false;
+bool ledAmarilloState = false;
+bool ledRojoState = false;
+unsigned long lastUpdate = 0;
 
-// Variables de Control
-int targetSpeed = 0;           // 0-255 (destino)
-int currentSpeed = 0;          // 0-255 (actual - con rampa)
-unsigned long fanTimerStart = 0;
-unsigned long timerDuration = 0; // En milisegundos
-bool fanRunning = false;
-unsigned long lastPwmRampTime = 0; // Control de rampa PWM
-bool infiniteManualMode = false; // Modo manual sin límite de tiempo
+// Sistema de pantallas
+int pantallaActual = 0;
+const int NUM_PANTALLAS = 4;
+long lastEncoderValue = 0;
 
-// Variables Manual Setup
-int menuStep = 0; // 0: Tiempo, 1: Velocidad, 2: Modo (Limitado/Infinito), 3: Modo Noche, 4: Confirmar
-int manualTimeSel = 30; // Minutos
-int manualSpeedSel = 50; // %
-bool manualInfiniteSelected = false; // Selección de modo infinito
-bool manualNightModeSelected = false; // Selección de modo noche
-int manualBromaMode = 0; // 0=Normal, 1=Conguitos(30%), 2=Serpentina(55%), 3=Morcilla(80%)
+// Variables tacógrafo
+volatile unsigned long tachPulseCount = 0;
+unsigned long lastTachCheck = 0;
+int fanRPM = 0;
 
-// Variables Botones/Encoder (con debounce por muestreo)
-long oldEncPos = 0;
-unsigned long lastButtonPress = 0;
-unsigned long bakButtonPressStart = 0;
-bool bakButtonHeld = false;
-int encoderSwitchSamples = 0;      // Muestreo: contador de muestras LOW
-int confirmButtonSamples = 0;
-int bakButtonSamples = 0;
-const int DEBOUNCE_SAMPLES = 3;    // Necesarias 3 muestras para considerar pulsado
+// ISR para tacógrafo
+void IRAM_ATTR tachISR() {
+  tachPulseCount++;
+}
 
-// Variables Sensores
-float hum = 0, temp = 0;           // AHT20
-float temp_bmp = 0;                // BMP280 (redundancia)
-int airQuality = 0;                // MQ135
-unsigned long lastSensorRead = 0;
-int sensorFailCount = 0;
-const int MAX_SENSOR_FAILS = 3;
-unsigned long setupTime = 0;        // Para MQ135 warmup
-bool mq135_warmed = false;
-int mq135_baseline = 400;           // Baseline inicial (aire relativo limpio)
-// NOTA: Variables oledLastActivity y oledOn eliminadas - pantalla siempre encendida
-
-// Home Assistant Integration (futuro)
-bool nightModeEnabled = false;      // Modo noche: activable desde HA
-
-// -------------------------------------------------------------------------
-// --- PROTOTIPOS DE FUNCIONES (CORRECCIÓN IMPORTANTE) ---
-// -------------------------------------------------------------------------
-void updateLEDs();
-void fatalError(String msg);
-void setFanSpeed(int speedPWM);
-void readSensors();
-void checkButtons();
-void runAutoLogic();
-void runManualLogic();
-void runManualSetup();
-void updateFanSpeedRamp();
-void drawAutoScreen();
-void drawManualSetupScreen();
-void drawManualRunScreen();
-void drawManualInfiniteScreen();
-void drawPauseScreen();
-
-// -------------------------------------------------------------------------
-// --- SETUP ---
-// -------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-  unsigned long setupStartTime = millis();
-  while (!Serial && (millis() - setupStartTime) < 500); // Espera rápida (sin delay bloqueante)
-  Serial.println("\n--- INICIANDO EXTRACTOR INTELIGENTE v7.1C REFACTORIZADO ---");
+  delay(500);
 
-  // 1. Configurar Pines
-  pinMode(LED_RED_PIN, OUTPUT);
-  pinMode(LED_YELLOW_PIN, OUTPUT);
+  Serial.println("\n--- FUSION: PANTALLA SSD1306 + LEDS SEGUROS ---");
+
+  // 1. Configurar Salidas (LEDs)
   pinMode(LED_GREEN_PIN, OUTPUT);
+  pinMode(LED_YELLOW_PIN, OUTPUT);
+  pinMode(LED_RED_PIN, OUTPUT);
   
-  // TEST LEDs al inicio - parpadeo para verificar conexión
-  Serial.println("TEST LEDs...");
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(LED_RED_PIN, HIGH);
-    delay(100);
-    digitalWrite(LED_RED_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, HIGH);
-    delay(100);
-    digitalWrite(LED_YELLOW_PIN, LOW);
-    digitalWrite(LED_GREEN_PIN, HIGH);
-    delay(100);
-    digitalWrite(LED_GREEN_PIN, LOW);
+  // Apagar LEDs al inicio (lógica invertida para todos)
+  digitalWrite(LED_GREEN_PIN, HIGH);  // HIGH = apagado
+  digitalWrite(LED_YELLOW_PIN, HIGH); // HIGH = apagado
+  digitalWrite(LED_RED_PIN, HIGH);    // HIGH = apagado
+  
+  // 1b. Configurar entrada tacógrafo ventilador
+  pinMode(FAN_TACH_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(FAN_TACH_PIN), tachISR, FALLING);
+
+  // 2. Inicializar I2C
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.setClock(100000); // 100kHz para estabilidad
+
+  // 3. Inicializar Pantalla SH1106
+  if (!display.begin(SCREEN_ADDRESS, true)) {
+    Serial.println("Fallo SH1106");
+    // Parpadeo de pánico en LED Rojo si falla pantalla (lógica invertida)
+    for(;;) { digitalWrite(LED_RED_PIN, digitalRead(LED_RED_PIN) == HIGH ? LOW : HIGH); delay(100); }
   }
-  Serial.println("TEST LEDs OK");
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  display.setCursor(0,0);
+  display.println("SISTEMA OK");
+  display.println("Iniciando...");
+  display.display();
+  delay(500);
+
+  // 4. Inicializar Sensores con delay
+  Serial.println("Iniciando sensores I2C...");
+  delay(100);
   
+  bool aht_ok = aht.begin();
+  Serial.print("AHT20: ");
+  Serial.println(aht_ok ? "OK" : "FALLO");
+  
+  bool bmp_ok = bmp.begin(0x77);
+  Serial.print("BMP280: ");
+  Serial.println(bmp_ok ? "OK" : "FALLO");
+
+  // 5. Configurar Encoder y Botones
+  encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
+  encoder.setCount(0);
   pinMode(ENCODER_SW_PIN, INPUT_PULLUP);
   pinMode(CONFIRM_BUTTON_PIN, INPUT_PULLUP);
   pinMode(BAK_BUTTON_PIN, INPUT_PULLUP);
-
-  // 2. Configurar PWM
-  ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
-  ledcAttachPin(PWM_FAN_PIN, PWM_CHANNEL);
-  ledcWrite(PWM_CHANNEL, 0);
-
-  // 3. Inicializar I2C y Pantalla
-  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-  Wire.setClock(400000);
   
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println("ERROR: OLED no detectada");
-    sensorState = SENSOR_FAILED;
-    currentMode = MODE_ERROR;
-  } else {
+  // Test LEDs al inicio (lógica invertida: LOW=ON, HIGH=OFF)
+  Serial.println("Test LEDs...");
+  digitalWrite(LED_RED_PIN, LOW);    // encender
+  delay(300);
+  digitalWrite(LED_RED_PIN, HIGH);   // apagar
+  digitalWrite(LED_YELLOW_PIN, LOW); // encender
+  delay(300);
+  digitalWrite(LED_YELLOW_PIN, HIGH);// apagar
+  digitalWrite(LED_GREEN_PIN, LOW);  // encender
+  delay(300);
+  digitalWrite(LED_GREEN_PIN, HIGH); // apagar
+  
+  Serial.println("Listo para testear.");
+}
+
+void loop() {
+  if (millis() - lastUpdate > 200) {
+    lastUpdate = millis();
+
+    // -- LECTURA DE BOTONES --
+    bool btnEncoder = !digitalRead(ENCODER_SW_PIN);
+    bool btnConfirm = !digitalRead(CONFIRM_BUTTON_PIN);
+    bool btnPausa   = !digitalRead(BAK_BUTTON_PIN);
+
+    // Antirebote para botones
+    static bool lastBtnEncoder = false;
+    static bool lastBtnConfirm = false;
+    static bool lastBtnPausa = false;
+
+    // -- LÓGICA DE BOTONES Y LEDs --
+    
+    // 1. Pulsar Encoder -> Toggle Verde (Simula Ventilador)
+    if (btnEncoder && !lastBtnEncoder) {
+      ventiladorActivo = !ventiladorActivo;
+      digitalWrite(LED_GREEN_PIN, ventiladorActivo ? LOW : HIGH);
+      Serial.print("LED Verde: ");
+      Serial.println(ventiladorActivo ? "ON" : "OFF");
+      delay(200);
+    }
+
+    // 2. Pulsar Confirm -> Toggle Amarillo
+    if (btnConfirm && !lastBtnConfirm) {
+      ledAmarilloState = !ledAmarilloState;
+      digitalWrite(LED_YELLOW_PIN, ledAmarilloState ? LOW : HIGH);
+      Serial.print("LED Amarillo: ");
+      Serial.println(ledAmarilloState ? "ON" : "OFF");
+      delay(200);
+    }
+
+    // 3. Pulsar BAK -> Toggle Rojo
+    if (btnPausa && !lastBtnPausa) {
+      ledRojoState = !ledRojoState;
+      digitalWrite(LED_RED_PIN, ledRojoState ? LOW : HIGH);
+      Serial.print("LED Rojo: ");
+      Serial.println(ledRojoState ? "ON" : "OFF");
+      delay(200);
+    }
+
+    lastBtnEncoder = btnEncoder;
+    lastBtnConfirm = btnConfirm;
+    lastBtnPausa = btnPausa;
+
+    // 4. Calcular RPM del ventilador (cada 1 segundo)
+    if (millis() - lastTachCheck >= 1000) {
+      noInterrupts();
+      unsigned long pulses = tachPulseCount;
+      tachPulseCount = 0;
+      interrupts();
+      
+      // Ventiladores 4-hilos: 2 pulsos por revolución
+      fanRPM = (pulses * 60) / 2;
+      lastTachCheck = millis();
+    }
+
+    // -- LECTURA DE SENSORES --
+    float temp = 0, hum = 0;
+    int mq135 = 0;
+    long encVal = encoder.getCount() / 2;
+
+    // Intentar leer AHT20
+    sensors_event_t h, t;
+    if (aht.getEvent(&h, &t)) {
+      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+        temp = t.temperature;
+        hum = h.relative_humidity;
+      }
+    }
+    
+    // Leer MQ135
+    mq135 = analogRead(MQ135_ANALOG_PIN);
+
+    // -- ACTUALIZAR PANTALLA --
     display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
     display.setTextSize(1);
-    display.setCursor(10, 20);
-    display.println("INICIANDO...");
+    display.setTextColor(SH110X_WHITE);
+    display.setCursor(0, 0);
+    
+    // Fila 1: Temp y Humedad
+    display.print("T:");
+    if (temp > 0) {
+      display.print(temp, 1);
+    } else {
+      display.print("--");
+    }
+    display.print(" H:");
+    if (hum > 0) {
+      display.print((int)hum);
+    } else {
+      display.print("--");
+    }
+    display.println("%");
+    
+    // Fila 2: MQ135 y RPM
+    display.print("Air:"); display.print(mq135);
+    display.print(" RPM:"); display.println(fanRPM);
+
+    // Fila 3: Encoder
+    display.print("Enc:"); display.println(encVal);
+
+    // Fila 4: Divisor
+    display.println("----");
+    
+    // Fila 5: Estado Botones/LEDs
+    display.print("G:"); display.print(ventiladorActivo ? "ON" : ".");
+    display.print(" Y:"); display.print(ledAmarilloState ? "ON" : ".");
+    display.print(" R:"); display.println(btnPausa ? "ON" : ".");
+    
     display.display();
   }
-
-  // 4. Inicializar Sensores (con reintentos)
-  bool aht_ok = false, bmp_ok = false;
-  for (int i = 0; i < I2C_RETRY_TIMES; i++) {
-    if (!aht_ok && aht.begin()) {
-      aht_ok = true;
-      Serial.println("AHT20 OK");
-    }
-    if (!bmp_ok && bmp.begin(0x77)) {
-      bmp_ok = true;
-      Serial.println("BMP280 OK");
-    }
-    if (aht_ok && bmp_ok) break;
-  }
-  
-  if (!aht_ok) {
-    Serial.println("ERROR: AHT20 no disponible");
-    sensorState = SENSOR_DEGRADED;
-  }
-  if (!bmp_ok) {
-    Serial.println("WARNING: BMP280 no disponible (usar AHT20)");
-  }
-  if (!aht_ok && !bmp_ok) {
-    sensorState = SENSOR_FAILED;
-    currentMode = MODE_ERROR;
-  }
-
-  // 5. Configurar Encoder
-  encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
-  encoder.setCount(0);
-
-  // 6. Inicializar MQ135 (comenzar precalentamiento)
-  setupTime = millis();
-  mq135_warmed = false;
-  Serial.println("MQ135 en precalentamiento (30 seg)...");
-
-  // 7. Watchdog Timer (8 segundos)
-  esp_task_wdt_init(8, true);
-  esp_task_wdt_add(NULL);
-
-  Serial.println("Sistema Listo.");
-  updateLEDs();
-}
-
-// -------------------------------------------------------------------------
-// --- LOOP PRINCIPAL ---
-// -------------------------------------------------------------------------
-void loop() {
-  esp_task_wdt_reset(); // Alimentar al perro guardián
-  readSensors();
-  checkButtons();
-  updateFanSpeedRamp(); // Ejecutar rampa PWM no-bloqueante
-  
-  // NOTA DISEÑO: La pantalla OLED permanece SIEMPRE ENCENDIDA.
-  // Para evitar quemado de píxeles (burn-in), todos los modos usan elementos
-  // dinámicos (scrolling, animaciones) como en MODE_MANUAL_INFINITE.
-  // NO implementar timeout de apagado - decisión de diseño v7.2C.
-  
-  // Parpadeo LED rojo en modo ERROR (no bloqueante)
-  if (currentMode == MODE_ERROR) {
-    static unsigned long lastErrorBlink = 0;
-    if (millis() - lastErrorBlink > 500) {
-      digitalWrite(LED_RED_PIN, !digitalRead(LED_RED_PIN));
-      lastErrorBlink = millis();
-    }
-  }
-  
-  switch (currentMode) {
-    case MODE_AUTO:
-      runAutoLogic();
-      drawAutoScreen();
-      break;
-
-    case MODE_MANUAL_SETUP:
-      runManualSetup();
-      drawManualSetupScreen();
-      break;
-
-    case MODE_MANUAL_RUN:
-      runManualLogic();
-      drawManualRunScreen();
-      break;
-
-    case MODE_MANUAL_INFINITE: {
-      // Modo manual sin límite de tiempo
-      // Reset timer cada 5 min para evitar overflow de millis() tras 49 días
-      if (millis() - fanTimerStart >= 300000UL) {
-        fanTimerStart = millis();
-      }
-      int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
-      setFanSpeed(pwmVal);
-      drawManualInfiniteScreen();
-      break;
-    }
-
-    case MODE_PAUSE:
-      // Ventilador apagado, esperar reanudar
-      setFanSpeed(0);
-      drawPauseScreen();
-      break;
-      
-    case MODE_ERROR:
-      setFanSpeed(0); // Apagar completamente en error
-      // fatalError() ya muestra LED rojo y pantalla de error
-      break;
-  }
-  
-  updateLEDs();
-  // SIN delay() bloqueante: usar timers no-bloqueantes en funciones específicas
-}
-
-// -------------------------------------------------------------------------
-// --- FUNCIONES DE LÓGICA ---
-// -------------------------------------------------------------------------
-
-void setFanSpeed(int speedPWM) {
-  // speedPWM: 0-255 (se aplica rampa suave)
-  targetSpeed = speedPWM;
-  if (speedPWM > 0) {
-    if (!fanRunning) fanRunning = true;
-  } else {
-    fanRunning = false;
-  }
-  // La rampa se ejecuta en updateFanSpeedRamp() desde loop()
-}
-
-void updateFanSpeedRamp() {
-  // No-bloqueante: ejecutar desde loop() para rampa PWM suave
-  if (millis() - lastPwmRampTime < PWM_RAMP_STEP) {
-    return; // Esperar siguiente paso de rampa
-  }
-  lastPwmRampTime = millis();
-
-  if (currentSpeed < targetSpeed) {
-    int delta = targetSpeed - currentSpeed;
-    if (delta > PWM_RAMP_DELTA) {
-      currentSpeed += PWM_RAMP_DELTA;
-    } else {
-      currentSpeed = targetSpeed;
-    }
-  } else if (currentSpeed > targetSpeed) {
-    int delta = currentSpeed - targetSpeed;
-    if (delta > PWM_RAMP_DELTA) {
-      currentSpeed -= PWM_RAMP_DELTA;
-    } else {
-      currentSpeed = targetSpeed;
-    }
-  }
-  
-  ledcWrite(PWM_CHANNEL, currentSpeed);
-}
-
-void readSensors() {
-  if (millis() - lastSensorRead > 2000) { // Leer cada 2 segundos
-    lastSensorRead = millis();
-    
-    // 1. Leer AHT20 con reintentos I2C
-    sensors_event_t h, t;
-    bool aht_ok = false;
-    for (int i = 0; i < I2C_RETRY_TIMES; i++) {
-      if (aht.getEvent(&h, &t)) {
-        aht_ok = true;
-        break;
-      }
-    }
-
-    if (aht_ok && !isnan(h.relative_humidity) && !isnan(t.temperature)) {
-      hum = h.relative_humidity;
-      temp = t.temperature;
-      sensorFailCount = 0;
-      sensorState = SENSOR_OK;
-    } else {
-      // AHT20 falló, intentar BMP280 como redundancia
-      bool bmp_ok = false;
-      for (int i = 0; i < I2C_RETRY_TIMES; i++) {
-        if (bmp.readTemperature() != 0) {
-          bmp_ok = true;
-          break;
-        }
-      }
-      
-      if (bmp_ok) {
-        temp_bmp = bmp.readTemperature();
-        temp = temp_bmp; // Usar BMP280 como fallback
-        sensorState = SENSOR_DEGRADED;
-        Serial.println("BMP280 redundancia activa (AHT20 falló)");
-      } else {
-        sensorFailCount++;
-        if (sensorFailCount >= MAX_SENSOR_FAILS) {
-          sensorState = SENSOR_FAILED;
-          currentMode = MODE_ERROR;
-        }
-      }
-    }
-
-    // Si fue error y se recupera, volver a AUTO
-    if (currentMode == MODE_ERROR && sensorState != SENSOR_FAILED) {
-      currentMode = MODE_AUTO;
-    }
-    
-    // 2. MQ135 - con precalentamiento
-    unsigned long warmupElapsed = millis() - setupTime;
-    if (warmupElapsed >= MQ135_WARMUP_TIME) { // MQ135_WARMUP_TIME ya está en ms (30000)
-      mq135_warmed = true;
-      if (mq135_baseline == 400) { // Primera lectura después de warmup
-        int raw = analogRead(MQ135_ANALOG_PIN);
-        mq135_baseline = raw;
-        Serial.print("MQ135 baseline: ");
-        Serial.println(mq135_baseline);
-      }
-    }
-    
-    if (mq135_warmed) {
-      int raw = analogRead(MQ135_ANALOG_PIN);
-      airQuality = (airQuality * 0.8) + (raw * 0.2); // Media móvil
-    } else {
-      airQuality = mq135_baseline; // Mientras precalienta, usar baseline
-    }
-  }
-}
-
-void runAutoLogic() {
-  int newTarget = 0;
-
-  // Lógica de Prioridades (máximo 80% para alargar vida útil del ventilador)
-  if (hum >= HUMIDITY_HIGH) {
-    newTarget = 204; // 80% (255 * 0.8)
-  } else if (hum >= HUMIDITY_MED) {
-    newTarget = 153; // ~60%
-  } else if (temp >= TEMP_HIGH) {
-    newTarget = 128; // ~50%
-  } else if (airQuality >= AIR_BAD) {
-    newTarget = 102; // ~40%
-  } else {
-    newTarget = 0; // Apagado
-  }
-
-  // Histéresis básica para evitar encendidos/apagados rápidos
-  if (abs(newTarget - currentSpeed) > 10) { // Solo cambiar si la diferencia es significativa
-     setFanSpeed(newTarget);
-  } else if (newTarget == 0 && currentSpeed != 0) {
-     setFanSpeed(0); // Forzar apagado si el target es 0
-  }
-}
-
-void runManualSetup() {
-  // Esta función estaba vacía/no definida, solo es lógica de UI
-  // Realmente la lógica está en checkButtons(), así que aquí no hace falta nada
-  // Pero la definimos vacía para que compile.
-}
-
-void runManualLogic() {
-  // Verificar temporizador
-  if (millis() - fanTimerStart >= timerDuration) { // USAR fanTimerStart
-    // Tiempo agotado
-    currentMode = MODE_AUTO;
-    setFanSpeed(0);
-  } else {
-    // Mantener velocidad seleccionada
-    int pwmVal = map(manualSpeedSel, 0, 100, 0, 255);
-    setFanSpeed(pwmVal);
-  }
-}
-
-// -------------------------------------------------------------------------
-// --- INTERFAZ Y ENTRADAS ---
-// -------------------------------------------------------------------------
-
-void checkButtons() {
-  // 1. Encoder Rotativo (Navegación)
-  long encVal = encoder.getCount() / 2;
-  if (encVal != oldEncPos) {
-    if (currentMode == MODE_MANUAL_SETUP) {
-      if (menuStep == 0) { // Tiempo
-        if (encVal > oldEncPos) manualTimeSel += 15; else manualTimeSel -= 15;
-        if (manualTimeSel < 15) manualTimeSel = 15;
-        if (manualTimeSel > 120) manualTimeSel = 120;
-      } else if (menuStep == 1) { // Velocidad
-        if (encVal > oldEncPos) manualSpeedSel += 25; else manualSpeedSel -= 25;
-        if (manualSpeedSel < 25) manualSpeedSel = 25;
-        if (manualSpeedSel > 100) manualSpeedSel = 100;
-      } else if (menuStep == 2) { // Seleccionar modo (Limitado vs Infinito)
-        if (encVal > oldEncPos) manualInfiniteSelected = true;
-        else manualInfiniteSelected = false;
-      } else if (menuStep == 3) { // Seleccionar modo noche
-        if (encVal > oldEncPos) manualNightModeSelected = true;
-        else manualNightModeSelected = false;
-      } else if (menuStep == 4) { // Seleccionar modo broma (Tronco de Olor)
-        if (encVal > oldEncPos) {
-          manualBromaMode++;
-          if (manualBromaMode > 3) manualBromaMode = 0;
-        } else {
-          manualBromaMode--;
-          if (manualBromaMode < 0) manualBromaMode = 3;
-        }
-      }
-    } else if (currentMode == MODE_AUTO) {
-       // Si giramos en AUTO, entramos a MANUAL SETUP
-       currentMode = MODE_MANUAL_SETUP;
-       menuStep = 0;
-       manualTimeSel = 30;
-    } else if (currentMode == MODE_MANUAL_INFINITE) {
-       // En modo infinito, ajustar velocidad con encoder
-       if (encVal > oldEncPos) manualSpeedSel += 10;
-       else manualSpeedSel -= 10;
-       if (manualSpeedSel < 10) manualSpeedSel = 10;
-       if (manualSpeedSel > 100) manualSpeedSel = 100;
-    }
-    oldEncPos = encVal;
-  }
-
-  // 2. Encoder Switch (OK / Next) - Debounce con máquina de estados
-  if (digitalRead(ENCODER_SW_PIN) == LOW) {
-    encoderSwitchSamples++;
-    if (encoderSwitchSamples >= DEBOUNCE_SAMPLES) {
-      // Botón confirmado presionado
-      if (currentMode == MODE_MANUAL_SETUP) {
-        menuStep++;
-        if (menuStep > 4) { // Después del paso 4 (modo broma), confirmar
-          infiniteManualMode = manualInfiniteSelected;
-          nightModeEnabled = manualNightModeSelected;
-          
-          // Si es modo broma, aplicar configuración especial (7 min, velocidades preset)
-          if (manualBromaMode > 0) {
-            currentMode = MODE_MANUAL_RUN;
-            timerDuration = 7 * 60000UL; // 7 minutos fijos
-            fanTimerStart = millis();
-            // Velocidades: Conguitos=30%, Serpentina=55%, Morcilla=80%
-            if (manualBromaMode == 1) manualSpeedSel = 30;
-            else if (manualBromaMode == 2) manualSpeedSel = 55;
-            else if (manualBromaMode == 3) manualSpeedSel = 80;
-          } else if (infiniteManualMode) {
-            currentMode = MODE_MANUAL_INFINITE;
-            fanTimerStart = millis(); // Inicializar timer para prevención de overflow
-          } else {
-            currentMode = MODE_MANUAL_RUN;
-            timerDuration = manualTimeSel * 60000UL;
-            fanTimerStart = millis();
-          }
-          menuStep = 0;
-        }
-      }
-      encoderSwitchSamples = 0;
-    }
-  } else {
-    encoderSwitchSamples = 0;
-  }
-
-  // 3. Confirm Button (BACK / Cancelar) - Debounce estado
-  if (digitalRead(CONFIRM_BUTTON_PIN) == LOW) {
-    confirmButtonSamples++;
-    if (confirmButtonSamples >= DEBOUNCE_SAMPLES) {
-      // Botón confirmado presionado
-      currentMode = MODE_AUTO;
-      menuStep = 0;
-      manualNightModeSelected = false; // Resetear selección de modo noche
-      manualBromaMode = 0; // Resetear modo broma
-      confirmButtonSamples = 0;
-    }
-  } else {
-    confirmButtonSamples = 0;
-  }
-
-  // 4. BAK Button (PAUSA - Mantener) - Debounce estado
-  if (digitalRead(BAK_BUTTON_PIN) == LOW) {
-    bakButtonSamples++;
-    if (bakButtonSamples >= DEBOUNCE_SAMPLES) {
-      // Botón confirmado presionado
-      if (!bakButtonHeld) {
-        bakButtonPressStart = millis();
-        bakButtonHeld = true;
-      } else {
-        if (millis() - bakButtonPressStart > PAUSE_HOLD_TIME) {
-          // Toggle Pausa
-          if (currentMode == MODE_PAUSE) {
-            currentMode = MODE_AUTO;
-          } else {
-            currentMode = MODE_PAUSE;
-          }
-          bakButtonHeld = false;
-        }
-      }
-    }
-  } else {
-    bakButtonSamples = 0;
-    bakButtonHeld = false;
-  }
-}
-
-void updateLEDs() {
-  if (currentMode == MODE_PAUSE || currentMode == MODE_ERROR) {
-    digitalWrite(LED_RED_PIN, HIGH);
-    digitalWrite(LED_GREEN_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, LOW);
-  } else if (currentMode == MODE_MANUAL_RUN || currentMode == MODE_MANUAL_SETUP || currentMode == MODE_MANUAL_INFINITE) {
-    digitalWrite(LED_RED_PIN, LOW);
-    digitalWrite(LED_GREEN_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, HIGH); // Amarillo indica Manual (incluye Infinito)
-  } else { // AUTO
-    digitalWrite(LED_RED_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, LOW);
-    digitalWrite(LED_GREEN_PIN, fanRunning ? HIGH : LOW); // Verde si ventilador ON
-  }
-}
-
-void fatalError(String msg) {
-  // Estado seguro: NO bucle infinito (evita watchdog reboot)
-  digitalWrite(LED_RED_PIN, HIGH);
-  digitalWrite(LED_YELLOW_PIN, LOW);
-  digitalWrite(LED_GREEN_PIN, LOW);
-  setFanSpeed(0); // Apagar ventilador
-  currentMode = MODE_ERROR;
-  
-  // Mostrar error en OLED
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 10);
-  display.println("ERROR!");
-  display.setTextSize(1);
-  display.setCursor(0, 35);
-  display.println(msg.substring(0, 16)); // Primeros 16 caracteres
-  display.display();
-  
-  // LED rojo parpadea cada 500ms (señal de error)
-  // pero la función retorna para que loop() siga ejecutando
-  Serial.println("FATAL ERROR: " + msg);
-}
-
-// -------------------------------------------------------------------------
-// --- PANTALLAS OLED ---
-// -------------------------------------------------------------------------
-
-void drawAutoScreen() {
-  // MAINSCREEN: Pantalla principal animada para modo AUTO
-  display.clearDisplay();
-  
-  // Animación de título con scroll
-  static unsigned long animationTime = 0;
-  static int scrollPos = 0;
-  
-  if (millis() - animationTime > 500) {
-    animationTime = millis();
-    scrollPos = (scrollPos + 1) % 5;
-  }
-  
-  // Título con scroll
-  display.setTextSize(1);
-  display.setCursor(scrollPos, 0);
-  display.print("EXTRACTOR TUNEADO BY RAUL");
-  
-  // Línea divisoria animada
-  display.setCursor(0, 10);
-  static unsigned long lineBlinkTime = 0;
-  static bool lineVisible = true;
-  
-  if (millis() - lineBlinkTime > 600) {
-    lineBlinkTime = millis();
-    lineVisible = !lineVisible;
-  }
-  
-  if (lineVisible) {
-    for (int i = 0; i < 21; i++) display.print("-");
-  } else {
-    for (int i = 0; i < 21; i++) display.print(" ");
-  }
-  
-  // Modo automático
-  display.setCursor(0, 20);
-  display.print("[AUTO] MODO AUTOMATICO");
-  
-  // Barra de velocidad actual
-  display.setTextSize(1);
-  int currentPercent = map(currentSpeed, 0, 255, 0, 100);
-  int barFill = map(currentPercent, 0, 100, 0, 18);
-  display.setCursor(0, 32);
-  display.print("[");
-  for (int i = 0; i < barFill; i++) display.print((char)254);
-  for (int i = barFill; i < 18; i++) display.print((char)176);
-  display.print("]");
-  display.print(currentPercent);
-  display.print("%");
-  
-  // Sensores en línea: T, H, Air
-  display.setCursor(0, 42);
-  display.print((char)42); display.print(" "); // ★
-  display.print("T:");
-  display.print((int)temp);
-  display.print((char)167); display.print(" "); // °
-  display.print("H:");
-  display.print((int)hum);
-  display.print("% Air:");
-  display.print(airQuality);
-  
-  // Estado aire con emoji animado
-  display.setCursor(0, 52);
-  
-  // Frame de animación (cambia cada 800ms)
-  static unsigned long emojiTime = 0;
-  static int emojiFrame = 0;
-  
-  if (millis() - emojiTime > 800) {
-    emojiTime = millis();
-    emojiFrame = (emojiFrame + 1) % 3; // 3 frames
-  }
-  
-  if (mq135_warmed) {
-    if (airQuality < 300) {
-      display.print("BUENA   ");
-      // Frames: ( ˘ ▽ ˘ ) -> ( ˘ ▽ ˘) -> (˘ ▽ ˘ )
-      if (emojiFrame == 0) display.print("( ˘ ▽ ˘ )");
-      else if (emojiFrame == 1) display.print("( ˘ ▽ ˘)");
-      else display.print("(˘ ▽ ˘ )");
-    } else if (airQuality < 600) {
-      display.print("REGULAR ");
-      // Frames: ¯\\_(ツ)_/¯ -> ¯\\_(ツ)_/¯ -> ¯\\_(ツ)_/¯ (ligera variación)
-      if (emojiFrame == 0) display.print("¯\\_(ツ)_/¯");
-      else if (emojiFrame == 1) display.print("¯\\_(ツ)_/¯");
-      else display.print(" ¯\\_(ツ)_/¯");
-    } else if (airQuality < 900) {
-      display.print("MALA    ");
-      // Frames: (×_×#) -> (×_×) -> (×_×#)
-      if (emojiFrame == 0) display.print("(×_×#)");
-      else if (emojiFrame == 1) display.print("(×_×)");
-      else display.print(" (×_×#)");
-    } else {
-      display.print("CRITICA ");
-      // Parpadeo rápido
-      if (emojiFrame == 0) display.print("(X_X)!!");
-      else if (emojiFrame == 1) display.print("(X_X)");
-      else display.print("(X_X)!!");
-    }
-  } else {
-    display.print("CALENT. [...]");
-  }
-  
-  display.display();
-}
-
-void drawManualSetupScreen() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("CONFIG MANUAL");
-  
-  display.setCursor(10, 15);
-  display.print(menuStep == 0 ? "> Tiempo: " : "  Tiempo: ");
-  display.print(manualTimeSel); display.println(" min");
-  
-  display.setCursor(10, 25);
-  display.print(menuStep == 1 ? "> Veloc:  " : "  Veloc:  ");
-  display.print(manualSpeedSel); display.println(" %");
-  
-  display.setCursor(10, 35);
-  display.print(menuStep == 2 ? "> Modo:   " : "  Modo:   ");
-  display.println(manualInfiniteSelected ? "Infinito" : "Limitado");
-
-  display.setCursor(10, 45);
-  display.print(menuStep == 3 ? "> Noche:  " : "  Noche:  ");
-  display.println(manualNightModeSelected ? "SI" : "NO");
-  
-  display.setCursor(10, 55);
-  display.print(menuStep == 4 ? "> Broma:  " : "  Broma:  ");
-  // 0=Normal, 1=Conguitos, 2=Serpentina, 3=Morcilla
-  if (manualBromaMode == 1) display.println("Conguitos");
-  else if (manualBromaMode == 2) display.println("Serpentin");
-  else if (manualBromaMode == 3) display.println("Morcilla");
-  else display.println("Normal");
-
-  display.display();
-}
-
-void drawManualRunScreen() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0,0);
-  display.print("MANUAL RUNNING");
-
-  long remaining = (timerDuration - (millis() - fanTimerStart)) / 60000; // USAR fanTimerStart
-  
-  display.setTextSize(2);
-  display.setCursor(15, 20);
-  display.print(remaining); display.print(" min");
-  
-  display.setTextSize(1);
-  display.setCursor(30, 45);
-  display.print("Vel: "); display.print(manualSpeedSel); display.print("% ");
-
-  display.display();
-}
-
-void drawManualInfiniteScreen() {
-  // Modo INFINITO: Permite ajustar velocidad girando encoder
-  display.clearDisplay();
-  
-  // Animación de título
-  static unsigned long animationTime = 0;
-  static int scrollPos = 0;
-  
-  if (millis() - animationTime > 500) {
-    animationTime = millis();
-    scrollPos = (scrollPos + 1) % 5;
-  }
-  
-  display.setTextSize(1);
-  display.setCursor(scrollPos, 0);
-  display.print("EXTRACTOR TUNEADO BY RAUL");
-  
-  // Línea divisoria animada
-  display.setCursor(0, 10);
-  static unsigned long lineBlinkTime = 0;
-  static bool lineVisible = true;
-  
-  if (millis() - lineBlinkTime > 600) {
-    lineBlinkTime = millis();
-    lineVisible = !lineVisible;
-  }
-  
-  if (lineVisible) {
-    for (int i = 0; i < 21; i++) display.print("-");
-  } else {
-    for (int i = 0; i < 21; i++) display.print(" ");
-  }
-  
-  // Modo infinito
-  display.setCursor(0, 20);
-  display.print("[");
-  display.print((char)236);  // ∞
-  display.print("] MANUAL INFINITO");
-  
-  // Barra de velocidad AJUSTABLE (gire encoder)
-  display.setTextSize(1);
-  int barFill = map(manualSpeedSel, 0, 100, 0, 18);
-  display.setCursor(0, 32);
-  display.print("[");
-  for (int i = 0; i < barFill; i++) display.print((char)254);
-  for (int i = barFill; i < 18; i++) display.print((char)176);
-  display.print("]");
-  display.print(manualSpeedSel);
-  display.print("%");
-  
-  // Sensores: T, H, Air
-  display.setCursor(0, 42);
-  display.print((char)42); display.print(" ");
-  display.print("T:");
-  display.print((int)temp);
-  display.print((char)167); display.print(" ");
-  display.print("H:");
-  display.print((int)hum);
-  display.print("% Air:");
-  display.print(airQuality);
-  
-  // Estado aire con emoji animado
-  display.setCursor(0, 52);
-  
-  static unsigned long emojiTime = 0;
-  static int emojiFrame = 0;
-  
-  if (millis() - emojiTime > 800) {
-    emojiTime = millis();
-    emojiFrame = (emojiFrame + 1) % 3;
-  }
-  
-  if (mq135_warmed) {
-    if (airQuality < 300) {
-      display.print("BUENA   ");
-      if (emojiFrame == 0) display.print("( ˘ ▽ ˘ )");
-      else if (emojiFrame == 1) display.print("( ˘ ▽ ˘)");
-      else display.print("(˘ ▽ ˘ )");
-    } else if (airQuality < 600) {
-      display.print("REGULAR ");
-      if (emojiFrame == 0) display.print("¯\\_(ツ)_/¯");
-      else if (emojiFrame == 1) display.print("¯\\_(ツ)_/¯");
-      else display.print(" ¯\\_(ツ)_/¯");
-    } else if (airQuality < 900) {
-      display.print("MALA    ");
-      if (emojiFrame == 0) display.print("(×_×#)");
-      else if (emojiFrame == 1) display.print("(×_×)");
-      else display.print(" (×_×#)");
-    } else {
-      display.print("CRITICA ");
-      if (emojiFrame == 0) display.print("(X_X)!!");
-      else if (emojiFrame == 1) display.print("(X_X)");
-      else display.print("(X_X)!!");
-    }
-  } else {
-    display.print("CALENT. [...]");
-  }
-  
-  display.display();
-}
-
-void drawPauseScreen() {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10, 20);
-  display.print("PAUSADO");
-  display.setTextSize(1);
-  display.setCursor(10, 45);
-  display.print("Mantener btn PAUSA");
-  display.display();
 }

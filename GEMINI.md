@@ -11,8 +11,8 @@ Sistema de extracción de aire inteligente para baño/galería con control autom
 🔧 COMPONENTES CONFIRMADOS (MONTAJE FINAL v7.1C)
 
 Hardware Principal:
-- Microcontrolador: ESP32-WROOM-32 (Versión 38 pines, USB Tipo-C, CP2102).
-- Placa de Expansión: Shield de 38 pines con bornes de tornillo/headers (G-V-S).
+- Microcontrolador: ESP32-WROOM-32 (Versión 30 pines, sin shield de expansión).
+- Conexiones: Directas a GPIO mediante cables dupont o PCB.
 - Pantalla: OLED 1.3" (Controlador SH1106 compatible con SSD1306) integrada en módulo con controles.
 - Sensores:
     - Módulo SimpleRobot: AHT20 (Humedad/Temp) + BMP280 (Temp/Presión) vía I2C.

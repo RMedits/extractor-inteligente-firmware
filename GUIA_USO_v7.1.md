@@ -134,7 +134,7 @@ ESP32
 
 ### Los botones no funcionan
 - [ ] Verificar encoder en GPIO 32, 33, 27
-- [ ] Verificar botones CONFIRM (P25) y BAK (P13)
+- [ ] Verificar botones CONFIRM (GPIO 25) y BAK (GPIO 26)
 - [ ] Intentar presionar 3 veces (debounce)
 
 ### Pantalla OLED apagada
