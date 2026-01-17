@@ -96,6 +96,8 @@ float humedad = 0;
 float presion = 0;
 int calidadAire = 0;
 
+unsigned long lastSensorRead = 0;
+
 // ISR para tacógrafo
 void IRAM_ATTR tachISR() {
   tachPulseCount++;
@@ -501,6 +503,17 @@ void setup() {
   delay(300);
   digitalWrite(LED_GREEN_PIN, HIGH); // apagar
   
+  // Lectura inicial de sensores para evitar 0 en pantalla
+  sensors_event_t h, t;
+  if (aht.getEvent(&h, &t)) {
+    if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+      temperatura = t.temperature;
+      humedad = h.relative_humidity;
+    }
+  }
+  presion = bmp.readPressure() / 100.0F;
+  calidadAire = analogRead(MQ135_ANALOG_PIN);
+
   Serial.println("Listo para testear.");
 }
 
@@ -743,15 +756,19 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temperatura = t.temperature;
-        humedad = h.relative_humidity;
+    if (millis() - lastSensorRead > 2000) {
+      lastSensorRead = millis();
+
+      sensors_event_t h, t;
+      if (aht.getEvent(&h, &t)) {
+        if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+          temperatura = t.temperature;
+          humedad = h.relative_humidity;
+        }
       }
+
+      presion = bmp.readPressure() / 100.0F;
+      calidadAire = analogRead(MQ135_ANALOG_PIN);
     }
-    
-    presion = bmp.readPressure() / 100.0F;
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
