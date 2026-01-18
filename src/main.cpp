@@ -65,6 +65,7 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -743,15 +744,21 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temperatura = t.temperature;
-        humedad = h.relative_humidity;
+    // OPTIMIZACIÓN: Leer sensores cada 2 segundos para evitar bloquear el loop
+    // (AHT20 tarda ~80ms en leer, bloqueando la interfaz)
+    if (millis() - lastSensorRead > 2000 || lastSensorRead == 0) {
+      lastSensorRead = millis();
+
+      sensors_event_t h, t;
+      if (aht.getEvent(&h, &t)) {
+        if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+          temperatura = t.temperature;
+          humedad = h.relative_humidity;
+        }
       }
+
+      presion = bmp.readPressure() / 100.0F;
+      calidadAire = analogRead(MQ135_ANALOG_PIN);
     }
-    
-    presion = bmp.readPressure() / 100.0F;
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
