@@ -63,16 +63,14 @@ Es crucial verificar las direcciones de tus componentes I2C (OLED, AHT20 y BMP28
 ### Primera Prueba
 Al iniciar por primera vez, observa el Monitor Serial. Deberías ver:
 ```
-╔════════════════════════════════╗
-║  EXTRACTOR INTELIGENTE v7.2C  ║
-╚════════════════════════════════╝
-
-Iniciando AHT20... ✓ OK
-Iniciando BMP280... ✓ OK
-Calibrando sensor MQ135 (30s)...
-✓ Sistema listo.
+--- FUSION: PANTALLA SSD1306 + LEDS SEGUROS ---
+Iniciando sensores I2C...
+AHT20: OK
+BMP280: OK
+Test LEDs...
+Listo para testear.
 ```
-En la pantalla OLED, verás una pantalla de bienvenida y luego la de calibración, antes de pasar al modo automático.
+En la pantalla OLED, verás "EXTRACTOR TUNEADO" antes de pasar al modo automático.
 
 ---
 
