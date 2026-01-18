@@ -1,8 +1,5 @@
 # 📍 Configuración de Pines - ESP32 30 Pines (v7.2C)
 
-⚠️ **ESTE DOCUMENTO ESTÁ OBSOLETO**  
-👉 **Ver [PINES_DEFINITIVOS.md](../PINES_DEFINITIVOS.md) para la configuración actual**
-
 Este proyecto usa ESP32 de **30 pines SIN SHIELD**.
 
 ---
@@ -20,12 +17,12 @@ Este proyecto usa ESP32 de **30 pines SIN SHIELD**.
 | **P32** | **Encoder TRA** |
 | **P33** | **Encoder TRB** |
 | **P25** | **Botón BACK (Confirm)** |
-| **P26** | **Botón PAUSA (Bak)** |
+| **P26** | - |
 | **P27** | **Botón OK (Encoder Push)** |
 | **P14** | NO USAR (Inestable) |
 | **P12** | - |
 | **GND** | GND |
-| **P13** | - |
+| **P13** | **Botón PAUSA (Bak)** |
 | **SD2** | - |
 | **SD3** | - |
 | **CMD** | - |
@@ -45,14 +42,14 @@ Este proyecto usa ESP32 de **30 pines SIN SHIELD**.
 | **P21** | **I2C SDA (OLED + AHT20 + BMP280)** |
 | **GND** | GND |
 | **P19** | **Ventilador PWM** |
-| **P18** | - |
-| **P5** | - |
-| **P17** | - |
-| **P16** | - |
-| **P4** | **LED Rojo** |
+| **P18** | **LED Rojo** |
+| **P5** | **LED Amarillo** |
+| **P17** | **LED Verde** |
+| **P16** | **Ventilador TACH** |
+| **P4** | - |
 | **P0** | - |
 | **P2** | - |
-| **P15** | **LED Verde** |
+| **P15** | - |
 | **SD1** | - |
 | **SD0** | - |
 | **CLK** | - |
@@ -73,8 +70,8 @@ El bus I2C permite conectar múltiples dispositivos en solo 2 cables. En este pr
 
 | Pin | Función | Dispositivos Conectados |
 |-----|---------|-------------------------|
-| **P21** | SDA (Datos I2C) | • OLED SSD1306 (0x3C)<br>• AHT20 (0x38)<br>• BMP280 (0x77) |
-| **P22** | SCL (Reloj I2C) | • OLED SSD1306 (0x3C)<br>• AHT20 (0x38)<br>• BMP280 (0x77) |
+| **P21** | SDA (Datos I2C) | • OLED SH110X (0x3C)<br>• AHT20 (0x38)<br>• BMP280 (0x77) |
+| **P22** | SCL (Reloj I2C) | • OLED SH110X (0x3C)<br>• AHT20 (0x38)<br>• BMP280 (0x77) |
 | **3V3** | Alimentación | • OLED + AHT20 + BMP280 |
 | **GND** | Tierra Común | • OLED + AHT20 + BMP280 |
 
@@ -84,7 +81,7 @@ El bus I2C permite conectar múltiples dispositivos en solo 2 cables. En este pr
 
 ## 📟 Conexiones Detalladas por Dispositivo
 
-### Pantalla OLED SSD1306 (Módulo Estardyn)
+### Pantalla OLED SH110X (Módulo Estardyn)
 | Pin del OLED | → | Pin del Shield ESP32 |
 |--------------|---|----------------------|
 | VCC / VDD    | → | **3V3** (Extremo Izquierdo) |

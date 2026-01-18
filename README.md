@@ -35,10 +35,10 @@ Sistema de extracción automatizado basado en **ESP32 de 30 pines (sin shield)**
 4. Las librerías necesarias se gestionan automáticamente en `platformio.ini`.
 
 ## 📚 Documentación
-- **[PINES_DEFINITIVOS.md](PINES_DEFINITIVOS.md)** - Configuración de hardware (LEER PRIMERO)
-- **[EMPIEZA_AQUI.md](EMPIEZA_AQUI.md)** - Guía de inicio rápido
-- **[docs/](docs/)** - Diagramas, calibración, montaje
-- **[QUICK_START.md](QUICK_START.md)** - Nuevas características v7.2C
+- **[docs/00_INICIO.md](docs/00_INICIO.md)** - Guía de inicio (LEER PRIMERO)
+- **[docs/HARDWARE.md](docs/HARDWARE.md)** - Configuración de hardware y pinout
+- **[docs/INSTALACION_FIRMWARE.md](docs/INSTALACION_FIRMWARE.md)** - Compilación e instalación
+- **[docs/](docs/)** - Documentación completa: diagramas, calibración, montaje
 
 ## 📜 Licencia
 Este proyecto es de código abierto. Siéntete libre de mejorarlo.

@@ -59,7 +59,7 @@
 
 ⚠️ **El ESP32 es de 30 pines sin shield** - No es compatible con placas de 38 pines
 
-⚠️ **GPIO exactos en [HARDWARE.md](HARDWARE.md)** - Não cambies sin documentar
+⚠️ **GPIO exactos en [HARDWARE.md](HARDWARE.md)** - No cambies sin documentar
 
 ⚠️ **I2C bus en GPIO 21/22** - Escáner disponible en `src/main_i2c_scanner.cpp`
 

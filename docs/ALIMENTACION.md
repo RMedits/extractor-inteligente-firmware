@@ -1,6 +1,6 @@
-# 🔌 Guía de Alimentación y Requisitos de Corriente v7.1C FINAL
+# 🔌 Guía de Alimentación y Requisitos de Corriente v7.2C
 
-Esta guía detalla los requisitos de alimentación para el proyecto v7.1C. El sistema utiliza una configuración de **doble voltaje**: 5V para la lógica y 12V para el ventilador.
+Esta guía detalla los requisitos de alimentación para el proyecto v7.2C. El sistema utiliza una configuración de **doble voltaje**: 5V para la lógica y 12V para el ventilador.
 
 ## 1. Circuito de Lógica (5V)
 Este circuito alimenta el "cerebro" y los sensores.

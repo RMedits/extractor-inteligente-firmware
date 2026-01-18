@@ -1,4 +1,4 @@
-# 📝 Guía de Montaje Físico y Consideraciones v7.1C FINAL
+# 📝 Guía de Montaje Físico y Consideraciones v7.2C
 
 La correcta disposición física de los componentes es fundamental para el buen funcionamiento del sistema, la precisión de los sensores y la seguridad.
 

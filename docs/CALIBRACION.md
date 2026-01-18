@@ -1,4 +1,4 @@
-# 🛠️ Guía de Calibración de Sensores v7.1C FINAL
+# 🛠️ Guía de Calibración de Sensores v7.2C
 
 Para que el modo automático del extractor funcione de manera óptima, es fundamental ajustar los umbrales de los sensores a las condiciones específicas de tu entorno.
 
@@ -6,7 +6,7 @@ Para que el modo automático del extractor funcione de manera óptima, es fundam
 
 El sensor MQ135 mide la concentración de varios gases (humo, alcohol, CO2, etc.). No proporciona una lectura directa en PPM, sino un valor analógico (0-4095) que representa la "calidad" del aire. Un valor más alto indica peor calidad del aire.
 
-### Proceso de Calibración:
+### Proceso de Calibración del Firmware v7.2C:
 
 1.  **Calentamiento Inicial (¡Muy Importante!)**:
     - El sensor MQ135 tiene un elemento calefactor interno que necesita estabilizarse.
@@ -55,7 +55,7 @@ Los umbrales de humedad (`HUMIDITY_THRESHOLD_HIGH` y `HUMIDITY_THRESHOLD_LOW`) d
 
 ## 3. Ajuste Fino del PWM del Ventilador (Delta 12V)
 
-El firmware **v7.1C** mapea la velocidad del 1% al 100% a un rango de PWM de **51 a 255**. El valor mínimo de 51 (20%) es para asegurar que el motor Delta arranque correctamente y no se quede bloqueado.
+El firmware **v7.2C** mapea la velocidad del 1% al 100% a un rango de PWM de **51 a 255**. El valor mínimo de 51 (20%) es para asegurar que el motor Delta arranque correctamente y no se quede bloqueado.
 
 -   **Si el ventilador no arranca en la velocidad mínima**: Necesitas subir `PWM_MIN_VALUE` en `src/main.cpp`. Auméntalo a `60` o `70`.
 -   **Si el ventilador hace ruido eléctrico pero no gira**: Sube el valor mínimo.

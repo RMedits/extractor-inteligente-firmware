@@ -1,4 +1,4 @@
-# Arquitectura del Sistema - v7.1C FINAL
+# Arquitectura del Sistema - v7.2C
 
 Este diagrama muestra una vista de alto nivel de los componentes principales del sistema y cómo interactúan entre sí.
 
