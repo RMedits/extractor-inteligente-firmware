@@ -96,6 +96,9 @@ float humedad = 0;
 float presion = 0;
 int calidadAire = 0;
 
+unsigned long lastSensorRead = 0;
+const unsigned long SENSOR_READ_INTERVAL = 2000;
+
 // ISR para tacógrafo
 void IRAM_ATTR tachISR() {
   tachPulseCount++;
@@ -482,6 +485,15 @@ void setup() {
   Serial.print("BMP280: ");
   Serial.println(bmp_ok ? "OK" : "FALLO");
 
+  // Lectura inicial para evitar 0.0 en pantalla
+  sensors_event_t h, t;
+  if (aht.getEvent(&h, &t)) {
+    temperatura = t.temperature;
+    humedad = h.relative_humidity;
+  }
+  presion = bmp.readPressure() / 100.0F;
+  calidadAire = analogRead(MQ135_ANALOG_PIN);
+
   // 5. Configurar Encoder y Botones
   encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
   encoder.setCount(0);
@@ -743,15 +755,19 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temperatura = t.temperature;
-        humedad = h.relative_humidity;
+    if (millis() - lastSensorRead > SENSOR_READ_INTERVAL) {
+      lastSensorRead = millis();
+
+      sensors_event_t h, t;
+      if (aht.getEvent(&h, &t)) {
+        if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+          temperatura = t.temperature;
+          humedad = h.relative_humidity;
+        }
       }
+
+      presion = bmp.readPressure() / 100.0F;
+      calidadAire = analogRead(MQ135_ANALOG_PIN);
     }
-    
-    presion = bmp.readPressure() / 100.0F;
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
