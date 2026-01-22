@@ -65,6 +65,7 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -482,6 +483,17 @@ void setup() {
   Serial.print("BMP280: ");
   Serial.println(bmp_ok ? "OK" : "FALLO");
 
+  // Lectura inicial de sensores para evitar mostrar 0
+  sensors_event_t h, t;
+  if (aht.getEvent(&h, &t)) {
+    if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+      temperatura = t.temperature;
+      humedad = h.relative_humidity;
+    }
+  }
+  presion = bmp.readPressure() / 100.0F;
+  calidadAire = analogRead(MQ135_ANALOG_PIN);
+
   // 5. Configurar Encoder y Botones
   encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
   encoder.setCount(0);
@@ -743,15 +755,19 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temperatura = t.temperature;
-        humedad = h.relative_humidity;
+    // Throttling: Leer sensores cada 2000ms para evitar bloqueos y saturación I2C
+    if (millis() - lastSensorRead > 2000) {
+      lastSensorRead = millis();
+      sensors_event_t h, t;
+      if (aht.getEvent(&h, &t)) {
+        if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+          temperatura = t.temperature;
+          humedad = h.relative_humidity;
+        }
       }
+
+      presion = bmp.readPressure() / 100.0F;
+      calidadAire = analogRead(MQ135_ANALOG_PIN);
     }
-    
-    presion = bmp.readPressure() / 100.0F;
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
