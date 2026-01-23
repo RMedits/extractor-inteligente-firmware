@@ -65,6 +65,7 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -431,6 +432,20 @@ void drawPantallaSistema() {
   display.display();
 }
 
+// -- LECTURA DE SENSORES CENTRALIZADA --
+void readSensors() {
+  sensors_event_t h, t;
+  if (aht.getEvent(&h, &t)) {
+    if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+      temperatura = t.temperature;
+      humedad = h.relative_humidity;
+    }
+  }
+
+  presion = bmp.readPressure() / 100.0F;
+  calidadAire = analogRead(MQ135_ANALOG_PIN);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -501,6 +516,9 @@ void setup() {
   delay(300);
   digitalWrite(LED_GREEN_PIN, HIGH); // apagar
   
+  // Lectura inicial de sensores
+  readSensors();
+
   Serial.println("Listo para testear.");
 }
 
@@ -742,16 +760,10 @@ void loop() {
       lastTachCheck = millis();
     }
 
-    // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
-        temperatura = t.temperature;
-        humedad = h.relative_humidity;
-      }
+    // -- LECTURA DE SENSORES (Throttled) --
+    if (millis() - lastSensorRead > 2000) {
+      readSensors();
+      lastSensorRead = millis();
     }
-    
-    presion = bmp.readPressure() / 100.0F;
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
