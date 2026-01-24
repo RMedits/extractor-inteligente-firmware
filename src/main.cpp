@@ -5,6 +5,7 @@
 #include <Adafruit_BMP280.h>
 #include <ESP32Encoder.h>
 #include <Arduino.h>
+#include <math.h>
 
 // --- PINOUT DEFINITIVO (PANTALLA OK + LEDS SEGUROS) ---
 #define I2C_SDA_PIN 21
@@ -91,10 +92,21 @@ unsigned long lastTachCheck = 0;
 int fanRPM = 0;
 
 // Variables sensores (globales para acceso desde pantallas)
-float temperatura = 0;
-float humedad = 0;
-float presion = 0;
+float temperatura = NAN;
+float humedad = NAN;
+float presion = NAN;
 int calidadAire = 0;
+bool ahtOk = false;
+bool bmpOk = false;
+
+void setLedOutput(uint8_t pin, bool on) {
+  digitalWrite(pin, on ? LOW : HIGH);
+}
+
+void setLedState(uint8_t pin, bool &state, bool on) {
+  state = on;
+  setLedOutput(pin, on);
+}
 
 // ISR para tacógrafo
 void IRAM_ATTR tachISR() {
@@ -114,9 +126,17 @@ void drawAutoScreen() {
   display.setTextSize(1);
   display.setCursor(0, 20);
   display.print("T:");
-  display.print(temperatura, 1);
+  if (isnan(temperatura)) {
+    display.print("--");
+  } else {
+    display.print(temperatura, 1);
+  }
   display.print("C H:");
-  display.print((int)humedad);
+  if (isnan(humedad)) {
+    display.print("--");
+  } else {
+    display.print((int)humedad);
+  }
   display.println("%");
   
   display.print("Aire: ");
@@ -237,10 +257,18 @@ void drawManualInfiniteScreen() {
   display.setCursor(0, 36);
   display.write(15); // ★
   display.print(" T:");
-  display.print(temperatura, 0);
+  if (isnan(temperatura)) {
+    display.print("--");
+  } else {
+    display.print(temperatura, 0);
+  }
   display.write(167); // °
   display.print(" H:");
-  display.print((int)humedad);
+  if (isnan(humedad)) {
+    display.print("--");
+  } else {
+    display.print((int)humedad);
+  }
   display.println("%");
   
   display.setCursor(0, 45);
@@ -281,7 +309,8 @@ void drawManualLimitedScreen() {
   
   // Tiempo restante
   unsigned long elapsed = (millis() - manualStartTime) / 1000;
-  unsigned long remaining = (manualTimeSel * 60) - elapsed;
+  unsigned long totalSeconds = manualTimeSel * 60UL;
+  unsigned long remaining = elapsed < totalSeconds ? (totalSeconds - elapsed) : 0;
   int minRemain = remaining / 60;
   int secRemain = remaining % 60;
   
@@ -322,12 +351,20 @@ void drawDiagPantalla1() {
   
   // Datos principales
   display.print("Temp: ");
-  display.print(temperatura, 1);
-  display.println(" C");
+  if (isnan(temperatura)) {
+    display.println("-- C");
+  } else {
+    display.print(temperatura, 1);
+    display.println(" C");
+  }
   
   display.print("Hum:  ");
-  display.print((int)humedad);
-  display.println(" %");
+  if (isnan(humedad)) {
+    display.println("-- %");
+  } else {
+    display.print((int)humedad);
+    display.println(" %");
+  }
   
   display.print("Aire: ");
   display.println(calidadAire);
@@ -348,7 +385,11 @@ void drawPantallaTemperatura() {
   // Temperatura grande
   display.setTextSize(3);
   display.setCursor(10, 18);
-  display.print(temperatura, 1);
+  if (isnan(temperatura)) {
+    display.print("--");
+  } else {
+    display.print(temperatura, 1);
+  }
   display.setTextSize(2);
   display.print("C");
   
@@ -356,12 +397,20 @@ void drawPantallaTemperatura() {
   display.setTextSize(1);
   display.setCursor(0, 42);
   display.print("Humedad: ");
-  display.print((int)humedad);
-  display.println("%");
+  if (isnan(humedad)) {
+    display.println("--%");
+  } else {
+    display.print((int)humedad);
+    display.println("%");
+  }
   
   display.setCursor(0, 51);
   display.print("Presion: ");
-  display.print(presion, 0);
+  if (isnan(presion)) {
+    display.print("--");
+  } else {
+    display.print(presion, 0);
+  }
   display.print("hPa");
   
   display.display();
@@ -443,9 +492,9 @@ void setup() {
   pinMode(LED_RED_PIN, OUTPUT);
   
   // Apagar LEDs al inicio (lógica invertida para todos)
-  digitalWrite(LED_GREEN_PIN, HIGH);  // HIGH = apagado
-  digitalWrite(LED_YELLOW_PIN, HIGH); // HIGH = apagado
-  digitalWrite(LED_RED_PIN, HIGH);    // HIGH = apagado
+  setLedOutput(LED_GREEN_PIN, false); // HIGH = apagado
+  setLedState(LED_YELLOW_PIN, ledAmarilloState, false);
+  setLedState(LED_RED_PIN, ledRojoState, false);
   
   // 1b. Configurar entrada tacógrafo ventilador
   pinMode(FAN_TACH_PIN, INPUT_PULLUP);
@@ -474,13 +523,17 @@ void setup() {
   Serial.println("Iniciando sensores I2C...");
   delay(100);
   
-  bool aht_ok = aht.begin();
+  ahtOk = aht.begin();
   Serial.print("AHT20: ");
-  Serial.println(aht_ok ? "OK" : "FALLO");
+  Serial.println(ahtOk ? "OK" : "FALLO");
   
-  bool bmp_ok = bmp.begin(0x77);
+  bmpOk = bmp.begin(0x77);
   Serial.print("BMP280: ");
-  Serial.println(bmp_ok ? "OK" : "FALLO");
+  Serial.println(bmpOk ? "OK" : "FALLO");
+
+  if (!ahtOk || !bmpOk) {
+    setLedState(LED_RED_PIN, ledRojoState, true);
+  }
 
   // 5. Configurar Encoder y Botones
   encoder.attachHalfQuad(ENCODER_CLK_PIN, ENCODER_DT_PIN);
@@ -491,16 +544,22 @@ void setup() {
   
   // Test LEDs al inicio (lógica invertida: LOW=ON, HIGH=OFF)
   Serial.println("Test LEDs...");
-  digitalWrite(LED_RED_PIN, LOW);    // encender
+  setLedState(LED_RED_PIN, ledRojoState, true);
   delay(300);
-  digitalWrite(LED_RED_PIN, HIGH);   // apagar
-  digitalWrite(LED_YELLOW_PIN, LOW); // encender
+  setLedState(LED_RED_PIN, ledRojoState, false);
+  setLedState(LED_YELLOW_PIN, ledAmarilloState, true);
   delay(300);
-  digitalWrite(LED_YELLOW_PIN, HIGH);// apagar
-  digitalWrite(LED_GREEN_PIN, LOW);  // encender
+  setLedState(LED_YELLOW_PIN, ledAmarilloState, false);
+  setLedOutput(LED_GREEN_PIN, true);
   delay(300);
-  digitalWrite(LED_GREEN_PIN, HIGH); // apagar
+  setLedOutput(LED_GREEN_PIN, false);
   
+  if (!ahtOk || !bmpOk) {
+    setLedState(LED_RED_PIN, ledRojoState, true);
+  } else {
+    setLedState(LED_RED_PIN, ledRojoState, false);
+  }
+
   Serial.println("Listo para testear.");
 }
 
@@ -631,7 +690,7 @@ void loop() {
               Serial.println("Iniciando MANUAL LIMITADO");
             }
             ventiladorActivo = true;
-            digitalWrite(LED_GREEN_PIN, LOW); // Encender LED verde
+            setLedOutput(LED_GREEN_PIN, true); // Encender LED verde
             configStep = 0;
           }
         }
@@ -645,7 +704,7 @@ void loop() {
         if (btnBak && !lastBtnBak) {
           estadoActual = AUTO;
           ventiladorActivo = false;
-          digitalWrite(LED_GREEN_PIN, HIGH);
+          setLedOutput(LED_GREEN_PIN, false);
           pantallaDurmiendo = false;
           display.oled_command(0xAF); // Asegurar pantalla encendida
           Serial.println("Saliendo de INFINITO");
@@ -662,18 +721,19 @@ void loop() {
         {
           // Verificar si terminó el tiempo
           unsigned long elapsed = (millis() - manualStartTime) / 1000;
-          if (elapsed >= (manualTimeSel * 60)) {
+          if (elapsed >= (manualTimeSel * 60UL)) {
             estadoActual = AUTO;
             ventiladorActivo = false;
-            digitalWrite(LED_GREEN_PIN, HIGH);
+            setLedOutput(LED_GREEN_PIN, false);
             Serial.println("Tiempo finalizado, volviendo a AUTO");
+            break;
           }
           
           // BAK -> volver a AUTO
           if (btnBak && !lastBtnBak) {
             estadoActual = AUTO;
             ventiladorActivo = false;
-            digitalWrite(LED_GREEN_PIN, HIGH);
+            setLedOutput(LED_GREEN_PIN, false);
             Serial.println("Cancelado LIMITADO");
           }
           drawManualLimitedScreen();
@@ -701,11 +761,11 @@ void loop() {
         // LEDs de test
         if (btnEncoder && !lastBtnEncoder) {
           ventiladorActivo = !ventiladorActivo;
-          digitalWrite(LED_GREEN_PIN, ventiladorActivo ? LOW : HIGH);
+          setLedOutput(LED_GREEN_PIN, ventiladorActivo);
         }
         if (btnConfirm && !lastBtnConfirm) {
           ledAmarilloState = !ledAmarilloState;
-          digitalWrite(LED_YELLOW_PIN, ledAmarilloState ? LOW : HIGH);
+          setLedState(LED_YELLOW_PIN, ledAmarilloState, ledAmarilloState);
         }
         
         // Dibujar pantalla diagnóstico actual
@@ -744,14 +804,28 @@ void loop() {
 
     // -- LECTURA DE SENSORES --
     sensors_event_t h, t;
-    if (aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature) && !isnan(h.relative_humidity)) {
+    if (ahtOk && aht.getEvent(&h, &t)) {
+      if (!isnan(t.temperature)) {
         temperatura = t.temperature;
-        humedad = h.relative_humidity;
+      } else {
+        temperatura = NAN;
       }
+      if (!isnan(h.relative_humidity)) {
+        humedad = h.relative_humidity;
+      } else {
+        humedad = NAN;
+      }
+    } else if (!ahtOk) {
+      temperatura = NAN;
+      humedad = NAN;
     }
-    
-    presion = bmp.readPressure() / 100.0F;
+
+    if (bmpOk) {
+      float readPresion = bmp.readPressure();
+      presion = isnan(readPresion) ? NAN : (readPresion / 100.0F);
+    } else {
+      presion = NAN;
+    }
     calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }

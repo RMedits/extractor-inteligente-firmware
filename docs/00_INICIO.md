@@ -1,4 +1,4 @@
-# 🌬️ Extractor de Aire Inteligente v7.2C - Guía de Inicio
+s# 🌬️ Extractor de Aire Inteligente v7.2C - Guía de Inicio
 
 ## 📋 Índice Rápido
 
