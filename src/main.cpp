@@ -66,6 +66,7 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -791,18 +792,23 @@ void loop() {
     lastBtnBak = btnBak;
     lastEncoderValue = currentEncoderValue;
 
-    // -- CALCULAR RPM DEL VENTILADOR --
-    if (millis() - lastTachCheck >= 1000) {
-      noInterrupts();
-      unsigned long pulses = tachPulseCount;
-      tachPulseCount = 0;
-      interrupts();
-      
-      fanRPM = (pulses * 60) / 2;
-      lastTachCheck = millis();
-    }
+  }
 
-    // -- LECTURA DE SENSORES --
+  // -- CALCULAR RPM DEL VENTILADOR --
+  if (millis() - lastTachCheck >= 1000) {
+    noInterrupts();
+    unsigned long pulses = tachPulseCount;
+    tachPulseCount = 0;
+    interrupts();
+
+    fanRPM = (pulses * 60) / 2;
+    lastTachCheck = millis();
+  }
+
+  // -- LECTURA DE SENSORES (2000ms) --
+  if (millis() - lastSensorRead > 2000) {
+    lastSensorRead = millis();
+
     sensors_event_t h, t;
     if (ahtOk && aht.getEvent(&h, &t)) {
       if (!isnan(t.temperature)) {
