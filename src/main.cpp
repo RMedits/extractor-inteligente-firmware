@@ -66,6 +66,8 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
+const unsigned long SENSOR_READ_INTERVAL = 2000;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -802,7 +804,12 @@ void loop() {
       lastTachCheck = millis();
     }
 
-    // -- LECTURA DE SENSORES --
+  }
+
+  // -- LECTURA DE SENSORES (Throttled) --
+  if (millis() - lastSensorRead > SENSOR_READ_INTERVAL) {
+    lastSensorRead = millis();
+
     sensors_event_t h, t;
     if (ahtOk && aht.getEvent(&h, &t)) {
       if (!isnan(t.temperature)) {
