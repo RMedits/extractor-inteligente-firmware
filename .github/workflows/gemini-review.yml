@@ -20,6 +20,7 @@ jobs:
   review:
     runs-on: 'ubuntu-latest'
     timeout-minutes: 7
+    if: ${{ vars.GEMINI_API_KEY != '' || secrets.GEMINI_API_KEY != '' || vars.GOOGLE_API_KEY != '' || secrets.GOOGLE_API_KEY != '' }}
     permissions:
       contents: 'read'
       id-token: 'write'
