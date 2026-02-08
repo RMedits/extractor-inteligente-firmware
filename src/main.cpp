@@ -67,6 +67,7 @@ bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
 unsigned long manualStartTime = 0;
+unsigned long lastSensorRead = 0;
 
 // Sistema de pantallas diagnóstico
 int pantallaActual = 0;
@@ -803,29 +804,33 @@ void loop() {
     }
 
     // -- LECTURA DE SENSORES --
-    sensors_event_t h, t;
-    if (ahtOk && aht.getEvent(&h, &t)) {
-      if (!isnan(t.temperature)) {
-        temperatura = t.temperature;
-      } else {
+    if (millis() - lastSensorRead > 2000) {
+      lastSensorRead = millis();
+
+      sensors_event_t h, t;
+      if (ahtOk && aht.getEvent(&h, &t)) {
+        if (!isnan(t.temperature)) {
+          temperatura = t.temperature;
+        } else {
+          temperatura = NAN;
+        }
+        if (!isnan(h.relative_humidity)) {
+          humedad = h.relative_humidity;
+        } else {
+          humedad = NAN;
+        }
+      } else if (!ahtOk) {
         temperatura = NAN;
-      }
-      if (!isnan(h.relative_humidity)) {
-        humedad = h.relative_humidity;
-      } else {
         humedad = NAN;
       }
-    } else if (!ahtOk) {
-      temperatura = NAN;
-      humedad = NAN;
-    }
 
-    if (bmpOk) {
-      float readPresion = bmp.readPressure();
-      presion = isnan(readPresion) ? NAN : (readPresion / 100.0F);
-    } else {
-      presion = NAN;
+      if (bmpOk) {
+        float readPresion = bmp.readPressure();
+        presion = isnan(readPresion) ? NAN : (readPresion / 100.0F);
+      } else {
+        presion = NAN;
+      }
+      calidadAire = analogRead(MQ135_ANALOG_PIN);
     }
-    calidadAire = analogRead(MQ135_ANALOG_PIN);
   }
 }
