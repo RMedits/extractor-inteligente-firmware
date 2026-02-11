@@ -66,6 +66,7 @@ bool ventiladorActivo = false;
 bool ledAmarilloState = false;
 bool ledRojoState = false;
 unsigned long lastUpdate = 0;
+unsigned long lastSensorRead = 0;
 unsigned long manualStartTime = 0;
 
 // Sistema de pantallas diagnóstico
@@ -801,8 +802,13 @@ void loop() {
       fanRPM = (pulses * 60) / 2;
       lastTachCheck = millis();
     }
+  } // Fin loop UI (200ms)
 
-    // -- LECTURA DE SENSORES --
+  // -- LECTURA DE SENSORES (2000ms) --
+  // Se desacopla del loop de UI para evitar bloquear la pantalla con los delays del sensor (80ms)
+  if (millis() - lastSensorRead > 2000) {
+    lastSensorRead = millis();
+
     sensors_event_t h, t;
     if (ahtOk && aht.getEvent(&h, &t)) {
       if (!isnan(t.temperature)) {
