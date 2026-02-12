@@ -42,8 +42,8 @@ Este proyecto usa ESP32 de **30 pines SIN SHIELD**.
 | 10 | **D5** | **LED Amarillo** |
 | 11 | **D17** | **LED Verde** |
 | 12 | **D16** | **Ventilador TACH (Feedback)** |
-| 13 | **D4** | - |
-| 14 | **D0** | - |
+| 13 | **D4** | **Radar LD2410C (OUT)** |
+| 14 | **D0** | **Radar LD2410C (TX/RX o Presence)** |
 | 15 | **D2** | - |
 
 ---

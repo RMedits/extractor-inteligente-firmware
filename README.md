@@ -1,52 +1,39 @@
-# 🌬️ Extractor de Aire Inteligente v7.2C
+# 🌀 Extractor Inteligente
 
-Sistema de extracción automatizado basado en **ESP32 de 30 pines (sin shield)** para baño o galería, optimizado para ventiladores industriales de alta potencia (Delta 12V 2.70A).
+Sistema de ventilación inteligente para baño con ESP32, sensores ambientales, radar de presencia e integración con Home Assistant.
 
-⚠️ **Ver documentación completa en carpeta [docs/](docs/)** - Empezar en [docs/00_INICIO.md](docs/00_INICIO.md)
-
-## 🚀 Características
-
-- **Modo Automático**: Control inteligente de velocidad basado en sensores
-- **Modo Manual**: Temporizador configurable + Modo Infinito con control de potencia
-- **Diagnóstico Visual**: Pantalla OLED 1.3" con navegación por encoder
-- **Modo Noche**: Pantalla con sleep/wake inteligente
-- **Seguridad**: Watchdog, failover de sensores, protección contra picos
-
-## 🛠️ Hardware
-
-| Componente | Especificación |
-|:---|:---|
-| **MCU** | ESP32-WROOM-32 (30 pines, sin shield) |
-| **Pantalla** | OLED SH110X 1.3" (I2C 0x3C) |
-| **Sensores** | AHT20, BMP280, MQ135 |
-| **Interfaz** | Encoder + 2 botones |
-| **Actuador** | MOSFET + Ventilador Delta 12V 2.7A |
-| **Protección** | Diodo 1N5408 |
-| **Encoder** | CLK: 32 / DT: 33 / SW: 27 | Control Usuario |
-| **Botones** | BACK: 25 / PAUSA: 13 | Control Usuario |
-| **MQ135** | 34 | Calidad Aire (Analógico) |
-| **Ventilador** | PWM: 19 / TACH: 16 | Control + Lectura RPM |
-| **LEDs** | Rojo: 18 / Amarillo: 5 / Verde: 17 | Estado Sistema |
-
-## 💻 Instalación
-1. Clonar este repositorio.
-2. Abrir con **PlatformIO**.
-3. Compilar y subir al ESP32.
-4. Las librerías necesarias se gestionan automáticamente en `platformio.ini`.
-
-## 📚 Documentación
-- **[PINES_DEFINITIVOS.md](PINES_DEFINITIVOS.md)** - Configuración de hardware (LEER PRIMERO)
-- **[EMPIEZA_AQUI.md](EMPIEZA_AQUI.md)** - Guía de inicio rápido
-- **[docs/](docs/)** - Diagramas, calibración, montaje
-- **[QUICK_START.md](QUICK_START.md)** - Nuevas características v7.2C
-
-## 📜 Licencia
-Este proyecto es de código abierto. Siéntete libre de mejorarlo.
-
----
-
-**Versión:** v7.2C  
-**Autor:** RAUL  
-**Hardware:** ESP32 30 pines (sin shield)
+## 📂 Estructura del Proyecto
 
 ```
+├── firmware/          ← Código ESP32 (PlatformIO)
+│   ├── include/       ← Config.h (pinout) + Secrets.h (credenciales)
+│   └── src/           ← main.cpp (firmware principal)
+├── app/               ← App web (backend + frontend) — En desarrollo
+├── docs/              ← Documentación técnica
+└── CONTEXTO_PROYECTO.md  ← Referencia técnica completa
+```
+
+## ⚙️ Hardware
+
+- **ESP32 DevKit V1** (30 pines)
+- **Sensores**: AHT20 (temp/hum), BMP280 (presión), MQ135 (calidad aire), Radar LD2410C (presencia)
+- **Pantalla**: OLED 1.3" SH1106G (I2C)
+- **Actuadores**: Ventilador 12V + MOSFET IRLZ44N (PWM) + Relé JQC-3FF
+- **Indicadores**: 5 LEDs (rojo, amarillo, verde estado + rojo/verde ocupación baño)
+- **HMI**: Encoder rotativo + botón BACK
+
+## 🔧 Setup Firmware
+
+1. Instalar [PlatformIO](https://platformio.org/)
+2. Copiar `firmware/include/Secrets.h.example` → `firmware/include/Secrets.h`
+3. Editar `Secrets.h` con tus credenciales WiFi
+4. Compilar y flashear desde `firmware/`
+
+## 🌐 App Web
+
+En desarrollo. Ver [app/README.md](app/README.md).
+
+## 📡 Ramas
+
+- `main` — Firmware estable + estructura del proyecto
+- `antigravity/app-integration` — Desarrollo de la app web + integración HA

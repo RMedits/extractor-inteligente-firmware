@@ -1,11 +1,21 @@
+# PlatformIO
 .pio/
 .vscode/
-*.hex
-*.elf
-*.bin
-.DS_Store
-Thumbs.db
-platformio_override.ini
+firmware/.pio/
+firmware/.vscode/
 
-.gemini/
-gha-creds-*.json
+# Credenciales
+firmware/include/Secrets.h
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Build
+build/
+node_modules/
+
+# IDE
+*.swp
+*.swo
+*~
