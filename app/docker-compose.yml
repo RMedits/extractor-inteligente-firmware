@@ -1,0 +1,43 @@
+services:
+  # --- MQTT Broker ---
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: extractor-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+  # --- Backend API ---
+  backend:
+    build: ./backend
+    container_name: extractor-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - DATABASE_URL=sqlite:///data/extractor.db
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      - mosquitto
+
+  # --- Frontend ---
+  frontend:
+    build: ./frontend
+    container_name: extractor-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  backend_data:

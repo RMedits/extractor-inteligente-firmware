@@ -14,6 +14,7 @@
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <PubSubClient.h>
 #include <WiFi.h>
 
 // =====================================================
@@ -51,6 +52,22 @@ OneButton btnBack(PIN_BTN_BACK, true);
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+
+// --- MQTT ---
+WiFiClient mqttWifiClient;
+PubSubClient mqtt(mqttWifiClient);
+unsigned long lastMqttPublish = 0;
+unsigned long lastMqttReconnect = 0;
+bool mqttDiscoverySent = false;
+
+// MQTT Topics
+const char *MQTT_TOPIC_SENSORS = "extractor/sensors";
+const char *MQTT_TOPIC_STATE = "extractor/state";
+const char *MQTT_TOPIC_AVAIL = "extractor/availability";
+const char *MQTT_TOPIC_CMD_MODE = "extractor/cmd/mode";
+const char *MQTT_TOPIC_CMD_FAN = "extractor/cmd/fan_speed";
+const char *MQTT_TOPIC_CMD_NIGHT_START = "extractor/cmd/night_start";
+const char *MQTT_TOPIC_CMD_NIGHT_END = "extractor/cmd/night_end";
 
 // =====================================================
 // MÁQUINA DE ESTADOS
@@ -449,6 +466,34 @@ void updateLeds() {
 }
 
 // =====================================================
+// HELPER: Estado a String
+// =====================================================
+String getStateString() {
+  switch (currentState) {
+  case EST_IDLE:
+    return "IDLE";
+  case EST_SHOWER:
+    return "SHOWER";
+  case EST_ODOR:
+    return "ODOR";
+  case EST_NIGHT:
+    return "NIGHT";
+  case EST_MANUAL_CONFIG:
+    return "CONFIG";
+  case EST_MANUAL_LIMITED:
+    return "MANUAL_LIM";
+  case EST_MANUAL_INFINITE:
+    return "MANUAL_INF";
+  case EST_DIAGNOSTIC:
+    return "DIAG";
+  case EST_ERROR:
+    return "ERROR";
+  default:
+    return "IDLE";
+  }
+}
+
+// =====================================================
 // NOTIFICAR CLIENTES WEBSOCKET
 // =====================================================
 void notifyClients() {
@@ -461,43 +506,255 @@ void notifyClients() {
   doc["dewPoint"] = sensors.dewPoint;
   doc["fan"] = sysConfig.fanSpeed;
   doc["rpm"] = sensors.fan_rpm;
-
-  String stateStr = "IDLE";
-  switch (currentState) {
-  case EST_IDLE:
-    stateStr = "IDLE";
-    break;
-  case EST_SHOWER:
-    stateStr = "SHOWER";
-    break;
-  case EST_ODOR:
-    stateStr = "ODOR";
-    break;
-  case EST_NIGHT:
-    stateStr = "NIGHT";
-    break;
-  case EST_MANUAL_CONFIG:
-    stateStr = "CONFIG";
-    break;
-  case EST_MANUAL_LIMITED:
-    stateStr = "MANUAL_LIM";
-    break;
-  case EST_MANUAL_INFINITE:
-    stateStr = "MANUAL_INF";
-    break;
-  case EST_DIAGNOSTIC:
-    stateStr = "DIAG";
-    break;
-  case EST_ERROR:
-    stateStr = "ERROR";
-    break;
-  }
-  doc["mode"] = stateStr;
+  doc["mode"] = getStateString();
   doc["hour"] = currentHour;
 
   String output;
   serializeJson(doc, output);
   ws.textAll(output);
+}
+
+// =====================================================
+// MQTT: Auto-Discovery para Home Assistant
+// =====================================================
+void mqttSendDiscovery() {
+  String macId = WiFi.macAddress();
+  macId.replace(":", "");
+  macId.toLowerCase();
+  String deviceId = "extractor_" + macId;
+
+  // Bloque device compartido (JSON)
+  String deviceBlock = "\"dev\":{\"ids\":[\"" + deviceId +
+                       "\"],"
+                       "\"name\":\"Extractor Inteligente\","
+                       "\"mf\":\"DIY\","
+                       "\"mdl\":\"ESP32-Extractor\","
+                       "\"sw\":\"1.0-mqtt\"}";
+
+  // Helper lambda para publicar sensor discovery
+  auto publishSensor = [&](const char *name, const char *uid,
+                           const char *valueTpl, const char *unit,
+                           const char *devClass, const char *stTopic) {
+    String topic =
+        "homeassistant/sensor/" + deviceId + "/" + String(uid) + "/config";
+    String payload = "{\"name\":\"" + String(name) +
+                     "\","
+                     "\"uniq_id\":\"" +
+                     deviceId + "_" + String(uid) +
+                     "\","
+                     "\"stat_t\":\"" +
+                     String(stTopic) +
+                     "\","
+                     "\"val_tpl\":\"" +
+                     String(valueTpl) +
+                     "\","
+                     "\"unit_of_meas\":\"" +
+                     String(unit) + "\"";
+    if (strlen(devClass) > 0) {
+      payload += ",\"dev_cla\":\"" + String(devClass) + "\"";
+    }
+    payload +=
+        ",\"avty_t\":\"" + String(MQTT_TOPIC_AVAIL) + "\"," + deviceBlock + "}";
+    mqtt.publish(topic.c_str(), payload.c_str(), true);
+    delay(50); // Dar tiempo al broker
+  };
+
+  // --- SENSORES ---
+  publishSensor("Temperatura", "temp", "{{value_json.temp}}", "°C",
+                "temperature", MQTT_TOPIC_SENSORS);
+  publishSensor("Humedad", "hum", "{{value_json.hum}}", "%", "humidity",
+                MQTT_TOPIC_SENSORS);
+  publishSensor("Presion", "pressure", "{{value_json.pressure}}", "hPa",
+                "pressure", MQTT_TOPIC_SENSORS);
+  publishSensor("Calidad Aire", "aqi", "{{value_json.aqi}}", "", "aqi",
+                MQTT_TOPIC_SENSORS);
+  publishSensor("Punto de Rocio", "dew", "{{value_json.dew}}", "°C",
+                "temperature", MQTT_TOPIC_SENSORS);
+  publishSensor("RPM Ventilador", "rpm", "{{value_json.rpm}}", "rpm", "",
+                MQTT_TOPIC_STATE);
+  publishSensor("Velocidad Fan", "fan_pct", "{{value_json.fan_speed}}", "%", "",
+                MQTT_TOPIC_STATE);
+  publishSensor("Modo", "mode", "{{value_json.mode}}", "", "",
+                MQTT_TOPIC_STATE);
+
+  // --- BINARY SENSOR: Ocupado ---
+  {
+    String topic =
+        "homeassistant/binary_sensor/" + deviceId + "/occupied/config";
+    String payload = "{\"name\":\"Bano Ocupado\","
+                     "\"uniq_id\":\"" +
+                     deviceId +
+                     "_occupied\","
+                     "\"stat_t\":\"" +
+                     String(MQTT_TOPIC_STATE) +
+                     "\","
+                     "\"val_tpl\":\"{{value_json.occupied}}\","
+                     "\"pl_on\":\"true\",\"pl_off\":\"false\","
+                     "\"dev_cla\":\"occupancy\","
+                     "\"avty_t\":\"" +
+                     String(MQTT_TOPIC_AVAIL) + "\"," + deviceBlock + "}";
+    mqtt.publish(topic.c_str(), payload.c_str(), true);
+    delay(50);
+  }
+
+  // --- SELECT: Modo ---
+  {
+    String topic = "homeassistant/select/" + deviceId + "/mode/config";
+    String payload = "{\"name\":\"Modo Extractor\","
+                     "\"uniq_id\":\"" +
+                     deviceId +
+                     "_mode_select\","
+                     "\"stat_t\":\"" +
+                     String(MQTT_TOPIC_STATE) +
+                     "\","
+                     "\"val_tpl\":\"{{value_json.mode}}\","
+                     "\"cmd_t\":\"" +
+                     String(MQTT_TOPIC_CMD_MODE) +
+                     "\","
+                     "\"options\":[\"IDLE\",\"MANUAL_INF\",\"NIGHT\",\"DIAG\"],"
+                     "\"avty_t\":\"" +
+                     String(MQTT_TOPIC_AVAIL) + "\"," + deviceBlock + "}";
+    mqtt.publish(topic.c_str(), payload.c_str(), true);
+    delay(50);
+  }
+
+  // --- NUMBER: Velocidad manual ---
+  {
+    String topic = "homeassistant/number/" + deviceId + "/fan_speed/config";
+    String payload = "{\"name\":\"Velocidad Ventilador\","
+                     "\"uniq_id\":\"" +
+                     deviceId +
+                     "_fan_speed_num\","
+                     "\"stat_t\":\"" +
+                     String(MQTT_TOPIC_STATE) +
+                     "\","
+                     "\"val_tpl\":\"{{value_json.fan_speed}}\","
+                     "\"cmd_t\":\"" +
+                     String(MQTT_TOPIC_CMD_FAN) +
+                     "\","
+                     "\"min\":0,\"max\":90,\"step\":5,"
+                     "\"unit_of_meas\":\"%\","
+                     "\"avty_t\":\"" +
+                     String(MQTT_TOPIC_AVAIL) + "\"," + deviceBlock + "}";
+    mqtt.publish(topic.c_str(), payload.c_str(), true);
+    delay(50);
+  }
+
+  Serial.println("MQTT Discovery publicado");
+  mqttDiscoverySent = true;
+}
+
+// =====================================================
+// MQTT: Publicar datos
+// =====================================================
+void mqttPublishData() {
+  if (!mqtt.connected())
+    return;
+
+  // Sensores
+  JsonDocument sDoc;
+  sDoc["temp"] = round(sensors.temp * 10) / 10.0;
+  sDoc["hum"] = round(sensors.hum * 10) / 10.0;
+  sDoc["pressure"] = round(sensors.pressure * 10) / 10.0;
+  sDoc["aqi"] = sensors.aqi_raw;
+  sDoc["dew"] = round(sensors.dewPoint * 10) / 10.0;
+  String sOut;
+  serializeJson(sDoc, sOut);
+  mqtt.publish(MQTT_TOPIC_SENSORS, sOut.c_str());
+
+  // Estado
+  JsonDocument stDoc;
+  stDoc["mode"] = getStateString();
+  stDoc["fan_speed"] = sysConfig.fanSpeed;
+  stDoc["rpm"] = sensors.fan_rpm;
+  stDoc["occupied"] = (currentState != EST_IDLE && currentState != EST_NIGHT);
+  stDoc["hour"] = currentHour;
+  String stOut;
+  serializeJson(stDoc, stOut);
+  mqtt.publish(MQTT_TOPIC_STATE, stOut.c_str());
+}
+
+// =====================================================
+// MQTT: Callback de comandos
+// =====================================================
+void mqttCallback(char *topic, byte *payload, unsigned int length) {
+  String msg;
+  for (unsigned int i = 0; i < length; i++) {
+    msg += (char)payload[i];
+  }
+  msg.trim();
+  Serial.print("MQTT cmd: ");
+  Serial.print(topic);
+  Serial.print(" = ");
+  Serial.println(msg);
+
+  String t = String(topic);
+
+  if (t == MQTT_TOPIC_CMD_MODE) {
+    if (msg == "IDLE")
+      currentState = EST_IDLE;
+    else if (msg == "MANUAL_INF")
+      currentState = EST_MANUAL_INFINITE;
+    else if (msg == "NIGHT")
+      currentState = EST_NIGHT;
+    else if (msg == "DIAG")
+      currentState = EST_DIAGNOSTIC;
+    sysConfig.lastInteraction = millis();
+    sysConfig.screenOn = true;
+  } else if (t == MQTT_TOPIC_CMD_FAN) {
+    int val = msg.toInt();
+    sysConfig.fanSpeed = constrain(val, 0, MAX_FAN_SPEED);
+    setFanSpeedSafe(sysConfig.fanSpeed);
+    if (currentState != EST_MANUAL_LIMITED &&
+        currentState != EST_MANUAL_INFINITE) {
+      currentState = EST_MANUAL_INFINITE;
+    }
+    sysConfig.lastInteraction = millis();
+    sysConfig.screenOn = true;
+  }
+
+  // Publicar estado actualizado inmediatamente
+  mqttPublishData();
+  notifyClients();
+}
+
+// =====================================================
+// MQTT: Conectar y reconectar
+// =====================================================
+void mqttReconnect() {
+  if (mqtt.connected())
+    return;
+  if (millis() - lastMqttReconnect < 5000)
+    return; // Intentar cada 5s
+  lastMqttReconnect = millis();
+
+  String clientId = "extractor-" + WiFi.macAddress();
+  Serial.print("MQTT conectando... ");
+
+  bool connected;
+  if (strlen(MQTT_USER) > 0) {
+    connected = mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS,
+                             MQTT_TOPIC_AVAIL, 1, true, "offline");
+  } else {
+    connected =
+        mqtt.connect(clientId.c_str(), MQTT_TOPIC_AVAIL, 1, true, "offline");
+  }
+
+  if (connected) {
+    Serial.println("OK!");
+    mqtt.publish(MQTT_TOPIC_AVAIL, "online", true);
+    mqtt.subscribe(MQTT_TOPIC_CMD_MODE);
+    mqtt.subscribe(MQTT_TOPIC_CMD_FAN);
+    mqtt.subscribe(MQTT_TOPIC_CMD_NIGHT_START);
+    mqtt.subscribe(MQTT_TOPIC_CMD_NIGHT_END);
+
+    if (!mqttDiscoverySent) {
+      mqttSendDiscovery();
+    }
+  } else {
+    Serial.print("FAIL rc=");
+    Serial.println(mqtt.state());
+  }
 }
 
 // =====================================================
@@ -957,6 +1214,11 @@ void setup() {
     configTime(3600, 3600, "pool.ntp.org"); // GMT+1 con DST
   }
 
+  // MQTT Setup
+  mqtt.setServer(MQTT_SERVER, MQTT_PORT);
+  mqtt.setCallback(mqttCallback);
+  mqtt.setBufferSize(1024); // Para los payloads de discovery
+
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -1104,6 +1366,20 @@ void loop() {
 
   // Protección stall
   checkStallProtection();
+
+  // MQTT
+  if (wifiConnected) {
+    if (!mqtt.connected()) {
+      mqttReconnect();
+    }
+    mqtt.loop();
+
+    // Publicar datos MQTT cada 5 segundos
+    if (mqtt.connected() && millis() - lastMqttPublish > 5000) {
+      mqttPublishData();
+      lastMqttPublish = millis();
+    }
+  }
 
   // WebSocket updates
   if (wifiConnected && millis() - lastWsUpdate > 500) {
