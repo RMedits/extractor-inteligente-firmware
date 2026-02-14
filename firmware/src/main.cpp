@@ -37,6 +37,7 @@
 
 #define RH_BUFFER_SIZE 30     // 1 minuto de muestras (2s cada una)
 #define SENSOR_SAMPLE_MS 2000 // Muestreo cada 2 segundos
+#define DISPLAY_UPDATE_INTERVAL_MS 200 // Actualización pantalla 5Hz
 
 // =====================================================
 // OBJETOS GLOBALES
@@ -111,6 +112,7 @@ volatile int tachPulses = 0;
 unsigned long lastRpmCalc = 0;
 unsigned long lastWsUpdate = 0;
 unsigned long lastSensorSample = 0;
+unsigned long lastDisplayUpdate = 0;
 bool wifiConnected = false;
 String wifiStatusMsg = "Init...";
 
@@ -1112,7 +1114,10 @@ void loop() {
   }
 
   updateLeds();
-  drawScreen();
+  if (millis() - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL_MS) {
+    drawScreen();
+    lastDisplayUpdate = millis();
+  }
 
   ws.cleanupClients();
   delay(20); // Pequeño retardo para ceder tiempo al WiFi
