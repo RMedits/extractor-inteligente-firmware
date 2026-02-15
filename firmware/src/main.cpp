@@ -111,6 +111,7 @@ volatile int tachPulses = 0;
 unsigned long lastRpmCalc = 0;
 unsigned long lastWsUpdate = 0;
 unsigned long lastSensorSample = 0;
+unsigned long lastDisplayUpdate = 0;
 bool wifiConnected = false;
 String wifiStatusMsg = "Init...";
 
@@ -1112,7 +1113,11 @@ void loop() {
   }
 
   updateLeds();
-  drawScreen();
+  // Throttle display updates to 5Hz to reduce I2C bus usage and main loop blocking
+  if (millis() - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL_MS) {
+    drawScreen();
+    lastDisplayUpdate = millis();
+  }
 
   ws.cleanupClients();
   delay(20); // Pequeño retardo para ceder tiempo al WiFi
