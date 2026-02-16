@@ -4,7 +4,13 @@
 
 - **Total PRs abiertos**: 30
 - **PRs obsoletos (Bolt)**: 29 (del #41 al #70, excepto #43)
-- **PRs a revisar manualmente**: 1 (#43)
+- **PR obsoleto (Codex)**: 1 (#43 - diagrama MOSFET simple, reemplazado por docs/MONTAJE_SSR_MOSFET.md)
+
+**Optimizaciones válidas extraídas:**
+- ✅ **Display throttling (5Hz/200ms)**: Aplicado en commit e1ec384
+- ✅ **Sensor throttling (2s)**: Ya existía desde antes
+
+**Conclusión:** TODOS los 30 PRs pueden ser cerrados de forma segura.
 
 ---
 
