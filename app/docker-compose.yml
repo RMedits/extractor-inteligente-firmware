@@ -1,0 +1,29 @@
+services:
+  # --- Backend API ---
+  backend:
+    build: ./backend
+    container_name: extractor-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MQTT_HOST=192.168.4.20
+      - MQTT_PORT=1883
+      - MQTT_USER=mqtt_extractor
+      - MQTT_PASS=65034753mosquito
+      - DATABASE_URL=sqlite:///data/extractor.db
+    volumes:
+      - backend_data:/app/data
+
+  # --- Frontend ---
+  frontend:
+    build: ./frontend
+    container_name: extractor-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_data:

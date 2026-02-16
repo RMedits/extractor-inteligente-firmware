@@ -31,7 +31,7 @@ Este proyecto usa ESP32 de **30 pines SIN SHIELD**.
 | Posición | Pin | Función en el Proyecto |
 | :--- | :--- | :--- |
 | 1 | **GND** | **Tierra Común** |
-| 2 | **D23** | - |
+| 2 | **D23** | **SSR Control (Relé Estado Sólido)** |
 | 3 | **D22** | **I2C SCL (OLED + AHT20 + BMP280)** |
 | 4 | **TX** | - |
 | 5 | **RX** | - |
@@ -106,3 +106,110 @@ El bus I2C permite conectar múltiples dispositivos en solo 2 cables. En este pr
 | DO (Digital)  | → | No conectado |
 
 **⚠️ Resumen:** Todos los dispositivos I2C (OLED, AHT20, BMP280) **comparten físicamente** los mismos 4 cables: VCC→3V3, GND→G, SDA→D21, SCL→D22.
+
+---
+
+## ⚡ Control del Ventilador (Doble Seguridad)
+
+El sistema usa **dos etapas** para control del ventilador:
+
+### 1. SSR BSSR-1DD (Relé Estado Sólido) - GPIO 23
+**Función:** Cortar/conectar la alimentación 12V completa (seguridad)
+
+| Borne SSR | Conexión |
+|-----------|----------|
+| **+3** (INPUT) | GPIO 23 → Resistencia 220Ω → +3 |
+| **-4** (INPUT) | GND del ESP32 |
+| **+2** (OUTPUT) | +12V de la fuente |
+| **-1** (OUTPUT) | Cable ROJO ventilador (+) |
+
+**Especificaciones:**
+- Modelo: BSSR-1DD 25A
+- Control: 3-32VDC, corriente 5-50mA
+- Carga: 5-220VDC, 25A
+- Resistencia necesaria: **220Ω** (corriente ~9.5mA con 3.3V)
+
+### 2. MOSFET IRLZ44N - GPIO 19
+**Función:** Modular la señal PWM para control de velocidad
+
+| Pin MOSFET | Conexión |
+|------------|----------|
+| **GATE** | GPIO 19 (PWM) |
+| **SOURCE** | GND común |
+| **DRAIN** | Cable AZUL ventilador (PWM) |
+| **Pull-down** | 10kΩ entre Gate y GND |
+
+**Especificaciones:**
+- Modelo: IRLZ44N (Logic Level)
+- Vgs: 1-2V (compatible con 3.3V del ESP32)
+- Id: 47A (ventilador usa ~1-2A)
+- Pull-down 10kΩ: evita activación fantasma en arranque
+
+### Conexión Completa del Ventilador
+
+```
+        ┌────────────────────────────────────┐
+        │      VENTILADOR 4 PINES            │
+        │                                    │
+12V+ ───┤ ROJO (+) ◄─── -1 (SSR)            │
+        │              ▲                     │
+        │          +2 (SSR) ◄─── 12V+        │
+        │                                    │
+GND ────┤ NEGRO (-)                          │
+        │                                    │
+GPIO 18─┤ AMARILLO (TACH - Sensor RPM)      │
+        │                                    │
+DRAIN ──┤ AZUL (PWM) ◄─── MOSFET            │
+        └────────────────────────────────────┘
+              ▲
+              │
+         MOSFET IRLZ44N
+         GATE ◄── GPIO 19 (PWM)
+         SOURCE ── GND
+              │
+             10kΩ
+              │
+             GND
+
+        SSR Control:
+        GPIO 23 ──── 220Ω ──► +3
+        GND ────────────────► -4
+```
+
+### Lógica de Funcionamiento
+
+| GPIO 23 (SSR) | GPIO 19 (PWM) | Resultado |
+|---------------|---------------|----------|
+| LOW | cualquiera | **Ventilador OFF** (sin alimentación) |
+| HIGH | 0% | Ventilador ON, velocidad mínima |
+| HIGH | 50% | Ventilador ON, velocidad media |
+| HIGH | 100% | Ventilador ON, velocidad máxima |
+
+**Ventajas de este diseño:**
+- **Seguridad**: SSR puede cortar alimentación completa
+- **Control fino**: MOSFET regula velocidad con PWM
+- **Protección ESP32**: SSR y MOSFET aíslan el ESP32 de la carga de alta corriente
+- **Doble capa**: incluso si falla el MOSFET, el SSR puede apagar todo
+
+---
+
+## 🔴 LEDs de Estado
+
+| GPIO | Color | Función |
+|------|-------|----------|
+| **D18** | Rojo | Error / Standby |
+| **D5** | Amarillo | Modo Manual / Config |
+| **D17** | Verde | Funcionamiento Normal |
+
+**Conexión:** GPIO → Resistencia 220Ω → LED (+) → GND
+
+---
+
+## 📡 Radar LD2410C (Detección Presencia)
+
+| Pin Radar | → | Pin ESP32 |
+|-----------|---|----------|
+| VCC | → | 5V |
+| GND | → | GND |
+| OUT | → | **D4** |
+| TX/RX | → | **D0** |
