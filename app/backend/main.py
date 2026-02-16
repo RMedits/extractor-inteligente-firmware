@@ -18,8 +18,10 @@ from fastapi.middleware.cors import CORSMiddleware
 # =====================================================
 # CONFIG
 # =====================================================
-MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
+MQTT_HOST = os.getenv("MQTT_HOST", "192.168.4.20")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_USER = os.getenv("MQTT_USER", "")
+MQTT_PASS = os.getenv("MQTT_PASS", "")
 DB_PATH = os.getenv("DATABASE_URL", "sqlite:///data/extractor.db").replace("sqlite:///", "")
 
 # =====================================================
@@ -158,6 +160,8 @@ async def broadcast_ws():
 def start_mqtt():
     global mqtt_client
     mqtt_client = paho_mqtt.Client(paho_mqtt.CallbackAPIVersion.VERSION2)
+    if MQTT_USER:
+        mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.on_message = on_mqtt_message
     mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
