@@ -45,6 +45,7 @@
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_ADDR 0x3C
+#define DISPLAY_UPDATE_INTERVAL_MS 200 // 5Hz (reduce I2C saturation)
 
 // SENSORS
 #define AHT20_ADDR 0x38
