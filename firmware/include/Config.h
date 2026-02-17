@@ -28,7 +28,7 @@
 #define PIN_RELAY 23    // Control del relé (corte 12V)
 #define PIN_LED_RED 18
 #define PIN_LED_YELLOW 5
-#define PIN_LED_GREEN 15 // Lógica Invertida (LOW = ON)
+#define PIN_LED_GREEN 17 // Active HIGH
 
 // LEDs de Puerta (Indicadores externos)
 #define PIN_LED_DOOR_RED 26   // Ocupado

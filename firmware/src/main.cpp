@@ -3,7 +3,6 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
-#include <Arduino.h>
 #include <ESP32Encoder.h>
 #include <OneButton.h>
 #include <Wire.h>
@@ -42,6 +41,9 @@
 // =====================================================
 // OBJETOS GLOBALES
 // =====================================================
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
 Adafruit_SH1106G display =
     Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 Adafruit_AHTX0 aht;
@@ -213,12 +215,13 @@ void setFanSpeedSafe(int percent) {
 
   sysConfig.fanSpeed = percent;
 
-  // CONTROL DEL RELÉ (Lógica Invertida: LOW = ON, HIGH = OFF)
-  // Si velocidad > 0 -> ACTIVAR RELÉ (LOW)
-  // Si velocidad == 0 -> DESACTIVAR RELÉ (HIGH)
+  // CONTROL DEL RELÉ (Active LOW: LOW = ON, HIGH = OFF)
   digitalWrite(PIN_RELAY, (percent > 0) ? LOW : HIGH);
 
-  int duty = map(percent, 0, 100, 0, 255);
+  // CONTROL PWM (Lógica Invertida por Open Drain en cable Azul)
+  // 0% Speed -> PWM 255 (Logic Low -> Fan Min/Stop)
+  // 100% Speed -> PWM 0 (Logic High -> Fan Max)
+  int duty = map(percent, 0, 100, 255, 0);
   ledcWrite(FAN_PWM_CHANNEL, duty);
 }
 
@@ -454,10 +457,10 @@ void updateLeds() {
     green = true;
   }
 
-  // PIN_LED_GREEN tiene lógica invertida (LOW = ON)
+  // PIN_LED_GREEN Active HIGH
   digitalWrite(PIN_LED_RED, red ? HIGH : LOW);
   digitalWrite(PIN_LED_YELLOW, yellow ? HIGH : LOW);
-  digitalWrite(PIN_LED_GREEN, green ? LOW : HIGH);
+  digitalWrite(PIN_LED_GREEN, green ? HIGH : LOW);
 
   // LEDs de Puerta (indicadores de ocupación)
   // Rojo = Ocupado (baño en uso), Verde = Libre
@@ -1164,19 +1167,24 @@ void setup() {
                      // CRÍTICO: Inicializar relé PRIMERO para fail-safe
   // Ventilador debe estar APAGADO al arrancar
   pinMode(PIN_RELAY, OUTPUT);
-  digitalWrite(PIN_RELAY,
-               HIGH); // Relé desactivado (Logic Inversa: HIGH=OFF)
+  digitalWrite(PIN_RELAY, HIGH); // Relé APAGADO (Active LOW: HIGH=OFF, LOW=ON)
 
   ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RES);
   ledcAttachPin(PIN_FAN_PWM, FAN_PWM_CHANNEL);
-  ledcWrite(FAN_PWM_CHANNEL, 0); // PWM a 0 → MOSFET cerrado
+  ledcWrite(FAN_PWM_CHANNEL,
+            255); // PWM 255 -> 0% Duty (Inverted) -> Fan STOP/Min
   pinMode(PIN_FAN_TACH, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_FAN_TACH), tachISR, FALLING);
 
-  display.begin(OLED_ADDR, true);
-  display.display();
-  delay(200);
-  display.clearDisplay();
+  // Intentar iniciar pantalla (si falla, no bloquear)
+  // SH1106 Init
+  if (!display.begin(OLED_ADDR, true)) {
+    Serial.println("OLED Failed");
+  } else {
+    display.display();
+    delay(200);
+    display.clearDisplay();
+  }
 
   if (!aht.begin())
     Serial.println("AHT20 fail");
@@ -1236,35 +1244,17 @@ void setup() {
   server.begin();
 
   // Velocidad inicial
-  setFanSpeedSafe(0); // Primero todo apagado
+  setFanSpeedSafe(0); // Asegurar todo apagado
 
-  // === SECUENCIA DE TEST DE ARRANQUE ===
+  /*
+  // === SECUENCIA DE TEST DE ARRANQUE (DESACTIVADA) ===
+  // Evitar ruido al arrancar. El usuario ya sabe que funciona.
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.print("TEST HARDWARE...");
+  display.print("INICIANDO...");
   display.display();
   delay(1000);
-
-  // 1. TEST RELÉ (Active LOW: LOW=ON)
-  display.setCursor(0, 15);
-  display.print("1. RELE ON (CLICK?)");
-  display.display();
-  digitalWrite(PIN_RELAY, LOW); // ON (Active Low)
-  delay(2000);
-  digitalWrite(PIN_RELAY, HIGH); // OFF (Active Low)
-  display.print(" OK");
-  display.display();
-  delay(1000);
-
-  // 2. TEST VENTILADOR
-  display.setCursor(0, 30);
-  display.print("2. FAN MAX (3s)");
-  display.display();
-  digitalWrite(PIN_RELAY, LOW);    // Energía ON (Active Low)
-  ledcWrite(FAN_PWM_CHANNEL, 255); // PWM MAX 100%
-  delay(3000);
-  ledcWrite(FAN_PWM_CHANNEL, 0); // PWM OFF
-  digitalWrite(PIN_RELAY, HIGH); // Energía OFF
+  */
 
   // 3. INICIO NORMAL
   setFanSpeedSafe(IDLE_SPEED);
